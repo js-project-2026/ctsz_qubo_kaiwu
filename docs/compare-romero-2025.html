@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GSE308682 QUBO vs Romero et al. 2025</title>
+  <style>
+    :root {
+      --bg: #f6f5f1;
+      --ink: #1c1b19;
+      --muted: #5c5852;
+      --line: #d9d4c8;
+      --card: #fff;
+      --ok: #1f6b4a;
+      --warn: #8a5a10;
+      --bad: #9b2c2c;
+      --accent: #2457a6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    main { max-width: 920px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1 { font-size: 1.75rem; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 8px; }
+    h2 { font-size: 1.2rem; margin: 32px 0 12px; }
+    h3 { font-size: 1rem; margin: 20px 0 8px; }
+    p, li { color: var(--ink); }
+    .lede { color: var(--muted); margin: 0 0 24px; }
+    .banner {
+      background: #f8e8e6;
+      border: 1px solid #e3c0bb;
+      padding: 14px 16px;
+      margin: 0 0 24px;
+    }
+    .banner strong { color: var(--bad); }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0 0 28px; }
+    .stat { background: var(--card); border: 1px solid var(--line); padding: 12px 14px; }
+    .stat b { display: block; font-size: 1.25rem; }
+    .stat span { color: var(--muted); font-size: 0.8rem; }
+    table { width: 100%; border-collapse: collapse; background: var(--card); font-size: 0.92rem; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-weight: 600; background: #eeeae2; }
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .bad { color: var(--bad); }
+    .bars { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 8px; }
+    .bar-row { display: grid; grid-template-columns: 160px 1fr 56px; gap: 10px; align-items: center; }
+    .bar-row span { font-size: 0.85rem; color: var(--muted); }
+    .track { height: 14px; background: #e8e4da; }
+    .fill { height: 14px; background: var(--accent); }
+    .fill.paper { background: #7a7468; }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .card { background: var(--card); border: 1px solid var(--line); padding: 14px 16px; }
+    footer { margin-top: 36px; color: var(--muted); font-size: 0.85rem; }
+    @media (max-width: 720px) {
+      .stats, .pair { grid-template-columns: 1fr 1fr; }
+      .bar-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>GSE308682 QUBO vs Romero et al. 2025</h1>
+    <p class="lede">
+      Notebook re-run with 5,000 Pearson-residual HVGs, scanpy diffusion pseudotime as
+      the target <em>T</em>, and local D-Wave TabuSampler.
+      Paper: Romero, Gupta, Gatlin, Chapkin, Cai,
+      <em>Quantum Machine Intelligence</em> (2025) 7:114.
+    </p>
+
+    <div class="banner">
+      <strong>Cardinality control failed — this is not a k=50 paper figure.</strong>
+      The code asked for K=50. Tabu returned |F*|=2,456 at α*=0.50 with energy
+      +71,715 (a dense, high-energy mask). Romero et al. report real-data gene
+      lists at k=50. Overlaps and MSE below describe a ~half-pool selection,
+      not a 50-gene QUBO set.
+    </div>
+
+    <div class="stats">
+      <div class="stat"><b>10,691 × 5,000</b><span>Cells × residual HVGs</span></div>
+      <div class="stat"><b>2,456</b><span>|F*| after asking for 50</span></div>
+      <div class="stat"><b>50%</b><span>QUBO ∩ LASSO of 2,456</span></div>
+      <div class="stat"><b>0.0054</b><span>QUBO linear test MSE</span></div>
+    </div>
+
+    <h2>1. Protocol vs paper</h2>
+    <table>
+      <thead>
+        <tr><th>Axis</th><th>Romero et al.</th><th>This run</th><th>Match</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Transform</td>
+          <td>QC, Pearson residuals (Lause 2021)</td>
+          <td>Same; HVG by residual variance</td>
+          <td class="ok">Yes</td>
+        </tr>
+        <tr>
+          <td>Feature pool</td>
+          <td>~5,000 (hESC) or ~9,661 (PC9) processed genes</td>
+          <td>5,000 residual HVGs</td>
+          <td class="ok">Yes (size)</td>
+        </tr>
+        <tr>
+          <td>Target T</td>
+          <td>Pseudotime of a known trajectory</td>
+          <td>scanpy DPT; iroot = min HBE1 residual (cell 1523)</td>
+          <td class="warn">Same type, different axis</td>
+        </tr>
+        <tr>
+          <td>Cost</td>
+          <td>Eq. (4): min −α I·F + (1−α) FᵀRF</td>
+          <td>Q = (1−α)R − α diag(I), R/(k−1)</td>
+          <td class="ok">Yes</td>
+        </tr>
+        <tr>
+          <td>k</td>
+          <td>50</td>
+          <td>Asked 50; tabu returned 2,456</td>
+          <td class="bad">No</td>
+        </tr>
+        <tr>
+          <td>Solver</td>
+          <td>Leap hybrid + MATLAB tabu</td>
+          <td>dwave.samplers.TabuSampler, local</td>
+          <td class="warn">Tabu family, not Leap</td>
+        </tr>
+        <tr>
+          <td>System</td>
+          <td>hESC→endothelium; PC9 + erlotinib</td>
+          <td>GEO GSE308682 CRISPR 10x hematopoiesis</td>
+          <td class="warn">No</td>
+        </tr>
+        <tr>
+          <td>Success metric</td>
+          <td>Source recall (synthetic); overlap + unique genes + GO (real)</td>
+          <td>Overlap counts + linear MSE of DPT</td>
+          <td class="warn">Partial</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>2. Overlap at the selected cardinality</h2>
+    <p>
+      This notebook compared LASSO and random forest at K=|F*|=2,456
+      (LASSO path n_nonzero=2,452). Paper hESC: QUBO∩LASSO = 22/50 (44%),
+      QUBO∩RFR = 34/50 (68%).
+    </p>
+    <div class="bars">
+      <div class="bar-row">
+        <span>QUBO ∩ LASSO (this)</span>
+        <div class="track"><div class="fill" style="width:50.1%"></div></div>
+        <span>50.1%</span>
+      </div>
+      <div class="bar-row">
+        <span>QUBO ∩ LASSO (paper k=50)</span>
+        <div class="track"><div class="fill paper" style="width:44%"></div></div>
+        <span>44%</span>
+      </div>
+      <div class="bar-row">
+        <span>QUBO ∩ RF (this)</span>
+        <div class="track"><div class="fill" style="width:50.8%"></div></div>
+        <span>50.8%</span>
+      </div>
+      <div class="bar-row">
+        <span>QUBO ∩ RFR (paper k=50)</span>
+        <div class="track"><div class="fill paper" style="width:68%"></div></div>
+        <span>68%</span>
+      </div>
+      <div class="bar-row">
+        <span>LASSO ∩ RF (this)</span>
+        <div class="track"><div class="fill" style="width:54.8%"></div></div>
+        <span>54.8%</span>
+      </div>
+      <div class="bar-row">
+        <span>All three (this)</span>
+        <div class="track"><div class="fill" style="width:28.6%"></div></div>
+        <span>28.6%</span>
+      </div>
+    </div>
+    <p>
+      Raw counts: Q∩L = 1,230; Q∩RF = 1,247; L∩RF = 1,346; all three = 702.
+      QUBO-only 680, LASSO-only 578, RF-only 565. Fractional Q∩LASSO is in the
+      same ballpark as the paper; Q∩RF is lower than their 68% — but the
+      cardinalities are not the same experiment.
+    </p>
+
+    <h2>3. Linear test MSE (DPT scaled to [0, 1])</h2>
+    <div class="bars">
+      <div class="bar-row">
+        <span>QUBO k=2456</span>
+        <div class="track"><div class="fill" style="width:58.7%"></div></div>
+        <span>0.0054</span>
+      </div>
+      <div class="bar-row">
+        <span>LASSO k=2452</span>
+        <div class="track"><div class="fill" style="width:33.7%"></div></div>
+        <span>0.0031</span>
+      </div>
+      <div class="bar-row">
+        <span>RF k=2456</span>
+        <div class="track"><div class="fill" style="width:40.2%"></div></div>
+        <span>0.0037</span>
+      </div>
+      <div class="bar-row">
+        <span>All 5,000 genes</span>
+        <div class="track"><div class="fill" style="width:100%"></div></div>
+        <span>0.0092</span>
+      </div>
+    </div>
+    <p>
+      Bar width is relative to the all-features MSE. LASSO is best, then RF,
+      then QUBO. All subsets beat the full 5,000-gene linear model, so using
+      fewer correlated genes helps, but this QUBO mask is not the best
+      2,456-gene predictor. Romero et al. did not headline real data with
+      linear MSE.
+    </p>
+    <p>
+      Solver health check: the previous 500-gene RUNX1 run had α*=0.57,
+      energy −2.67, |F*|=50. This 5,000-gene tabu run has energy +71,715 and
+      |F*|≈p/2, so tabu did not find a sparse Eq. (4) minimizer. α* stuck at
+      0.50 (the search default).
+    </p>
+
+    <h2>4. Marker genes</h2>
+    <div class="pair">
+      <div class="card">
+        <h3>In this QUBO mask</h3>
+        <p>
+          Erythroid / heme: HBE1, HBD, HBB, HBA2, GYPB, GYPA, ALAS2, SLC4A1,
+          CA1, KLF1. Also ID3 (on the paper’s unique hESC list, but here also
+          in LASSO and RF), RUNX1, EPHB2, EPAS1, FN1.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Paper endothelial unique set</h3>
+        <p>
+          RAMP2, APLN, THY1, ACTR2 are not in QUBO. VIM, GDF15, TUBA1C, GATA1,
+          HBZ appear in LASSO (and usually RF) but not QUBO. DPT was rooted at
+          low HBE1, so the axis is hematopoietic/erythroid, not hESC→EC.
+        </p>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Gene</th><th>Why it matters</th><th>QUBO</th><th>LASSO</th><th>RF</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>HBE1</td><td>DPT iroot / embryonic globin</td><td>yes</td><td>yes</td><td>yes</td></tr>
+        <tr><td>ID3</td><td>Paper QUBO-unique (hESC)</td><td>yes</td><td>yes</td><td>yes</td></tr>
+        <tr><td>KLF1, ALAS2, CA1</td><td>Erythroid</td><td>yes</td><td>mixed</td><td>yes</td></tr>
+        <tr><td>VIM, GDF15, GATA1</td><td>Paper overlap lists</td><td>no</td><td>yes</td><td>mixed</td></tr>
+        <tr><td>RAMP2, APLN, THY1</td><td>Paper EC unique</td><td>no</td><td>no</td><td>no</td></tr>
+        <tr><td>EPHB2</td><td>Paper VEGF/EPH theme</td><td>yes</td><td>no</td><td>no</td></tr>
+      </tbody>
+    </table>
+
+    <h2>5. What this run can and cannot say</h2>
+    <ul>
+      <li>
+        <strong>Can:</strong> The pipeline is in the paper’s protocol family
+        (residuals, ~5k genes, trajectory T, unconstrained QUBO + tabu).
+        Fractional Q∩LASSO (~50%) is not wildly unlike their 44% at k=50.
+      </li>
+      <li>
+        <strong>Cannot:</strong> Replicate Table 1 (planted synthetic sources)
+        or claim the hESC/PC9 unique-gene / GO results. Positive energy and
+        |F*|≈p/2 mean the reported gene list is not a k=50 QUBO solution.
+      </li>
+      <li>
+        <strong>Next:</strong> Get |F*|=50 on p=5,000 (stronger α search,
+        more tabu reads, or Leap hybrid), then overlap/enrichment. Until then
+        the only healthy k=50 real-data mask in this project is the earlier
+        500-HVG RUNX1 residual run, which is a different T and pool.
+      </li>
+    </ul>
+
+    <footer>
+      Generated from <code>qubo.ipynb</code> outputs after the 5,000-gene DPT + tabu
+      re-run. Data: GEO GSE308682 (not stored in this repository).
+    </footer>
+  </main>
+</body>
+</html>

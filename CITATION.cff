@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+title: QUBO feature selection for scRNA-seq
+message: If you use this software, please cite Romero et al. (2025) for the method.
+type: software
+authors:
+  - family-names: Shang
+    given-names: Jin
+preferred-citation:
+  type: article
+  authors:
+    - family-names: Romero
+      given-names: Selim
+    - family-names: Gupta
+      given-names: Shreyan
+    - family-names: Gatlin
+      given-names: Victoria
+    - family-names: Chapkin
+      given-names: Robert S.
+    - family-names: Cai
+      given-names: James J.
+  title: "Quantum annealing for enhanced feature selection in single-cell RNA sequencing data analysis"
+  journal: Quantum Machine Intelligence
+  year: 2025
+  volume: "7"
+  issue: "114"
+  doi: 10.1007/s42484-025-00312-1

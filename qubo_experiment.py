@@ -1,0 +1,173 @@
+"""Experiment helpers shared by qubo.ipynb and qubo_v1.py."""
+
+from __future__ import annotations
+
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression, lasso_path
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+
+from data_loader import DEFAULT_DATA_DIR, DEFAULT_N_TOP_GENES, load_scrna_qubo_data
+from qubo_model import generate_synthetic_data
+
+
+def load_experiment(
+    use_real_data=True,
+    data_dir=DEFAULT_DATA_DIR,
+    target_gene="RUNX1",
+    n_top_genes=DEFAULT_N_TOP_GENES,
+    n_samples=10000,
+    n_features=50,
+    target_mode="pseudotime",
+    root_gene="HBE1",
+):
+    """Return X, y, true_features, feature_names (names is None for synthetic)."""
+    if use_real_data:
+        X, y, true_features, feature_names = load_scrna_qubo_data(
+            data_dir,
+            target_gene=target_gene,
+            n_top_genes=n_top_genes,
+            target_mode=target_mode,
+            root_gene=root_gene,
+        )
+        print(f"Real data (Pearson residuals): X={X.shape}, y={y.shape}")
+        print(f"Feature names (first 10): {feature_names[:10]}")
+        return X, y, true_features, feature_names
+    X, y, true_features = generate_synthetic_data(
+        n_samples=n_samples, n_features=n_features
+    )
+    print(f"Synthetic data: X={X.shape}, y={y.shape}")
+    print(f"Source feature indices: {true_features}")
+    return X, y, true_features, None
+
+
+def target_cardinality(n_features, k=50):
+    if n_features >= k:
+        return k
+    return max(5, n_features // 5)
+
+
+def _lasso_top_k(X, y, K):
+    """glmnet-style: pick the path alpha whose n_nonzero is closest to K.
+
+    Fixed Lasso(alpha=0.01) on Pearson residuals is barely sparse, so
+    argsort(|coef|)[-K:] was a contiguous HVG-index block of near-zeros.
+    """
+    X = np.asarray(X, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64).ravel()
+    std = X.std(axis=0)
+    std[std == 0] = 1.0
+    Xs = (X - X.mean(axis=0)) / std
+    alphas, coefs, _ = lasso_path(Xs, y, alphas=200)
+    n_nz = np.sum(np.abs(coefs) > 1e-10, axis=0)
+    path_i = int(np.argmin(np.abs(n_nz.astype(float) - K)))
+    coef = coefs[:, path_i]
+    nz = np.where(np.abs(coef) > 1e-10)[0]
+    print(
+        f"LASSO path: α={alphas[path_i]:.4g}, n_nonzero={n_nz[path_i]} "
+        f"(target K={K})"
+    )
+    if nz.size == 0:
+        return np.argsort(np.abs(coef))[-K:]
+    if nz.size <= K:
+        return nz
+    return nz[np.argsort(np.abs(coef[nz]))[-K:]]
+
+
+def compare_with_lasso_rfr(
+    X,
+    y,
+    I,
+    true_features,
+    selected_idx_qubo,
+    K=50,
+    feature_names=None,
+):
+    selected_idx_lasso = _lasso_top_k(X, y, K)
+
+    print("Fitting random forest (100 trees)...")
+    rf = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+    rf.fit(X, y)
+    rf_importance = rf.feature_importances_
+    selected_idx_rf = np.argsort(rf_importance)[-K:]
+
+    def recall_at_k(selected_idx):
+        if not len(true_features):
+            return float("nan")
+        return len(set(selected_idx) & set(true_features)) / len(true_features)
+
+    qset, lset, rset = set(map(int, selected_idx_qubo)), set(map(int, selected_idx_lasso)), set(map(int, selected_idx_rf))
+    print(f"\n=== Feature selection (K={K}) ===")
+    if len(true_features):
+        print(f"Planted sources:     {true_features}")
+    print(f"QUBO:                {sorted(map(int, selected_idx_qubo))}")
+    print(f"LASSO:               {sorted(map(int, selected_idx_lasso))}")
+    print(f"Random forest:       {sorted(map(int, selected_idx_rf))}")
+    print(
+        f"Overlaps: Q∩L={len(qset & lset)}/{K}, Q∩RF={len(qset & rset)}/{K}, "
+        f"L∩RF={len(lset & rset)}/{K}, all3={len(qset & lset & rset)}"
+    )
+    if feature_names is not None:
+        print(f"QUBO genes:          {[feature_names[i] for i in sorted(selected_idx_qubo)]}")
+        print(f"LASSO genes:         {[feature_names[i] for i in sorted(selected_idx_lasso)]}")
+        print(f"RF genes:            {[feature_names[i] for i in sorted(selected_idx_rf)]}")
+
+    if len(true_features):
+        print("\nRecall of planted sources:")
+        print(f"  QUBO:           {recall_at_k(selected_idx_qubo):.2%}")
+        print(f"  LASSO:          {recall_at_k(selected_idx_lasso):.2%}")
+        print(f"  Random forest:  {recall_at_k(selected_idx_rf):.2%}")
+
+    fig, axes = plt.subplots(3, 1, figsize=(12, 10))
+    colors = ["red" if i in selected_idx_qubo else "lightgray" for i in range(len(I))]
+    axes[0].bar(range(len(I)), I, color=colors)
+    axes[0].set_title("QUBO-selected features (red) vs MI importance")
+    axes[0].set_ylabel("I(x; T)")
+    viz = np.zeros(X.shape[1])
+    viz[selected_idx_lasso] = 1.0
+    colors = ["red" if i in selected_idx_lasso else "lightgray" for i in range(len(viz))]
+    axes[1].bar(range(len(viz)), viz, color=colors)
+    axes[1].set_title("LASSO-selected features (red); bar=1 if in top-K path set")
+    axes[1].set_ylabel("selected")
+    colors = ["red" if i in selected_idx_rf else "lightgray" for i in range(len(rf_importance))]
+    axes[2].bar(range(len(rf_importance)), rf_importance, color=colors)
+    axes[2].set_title("Random forest-selected features (red)")
+    axes[2].set_xlabel("Feature index")
+    axes[2].set_ylabel("Importance")
+    plt.tight_layout()
+    plt.show()
+    return selected_idx_lasso, selected_idx_rf
+
+
+def evaluate_selected_features(X, y, selected_indices):
+    if len(selected_indices) == 0:
+        return float("nan")
+    X_selected = X[:, selected_indices]
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_selected, y, test_size=0.3, random_state=42
+    )
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+    return mean_squared_error(y_test, model.predict(X_test))
+
+
+def print_regression_mse(X, y, selected_idx_qubo, selected_idx_lasso, selected_idx_rf):
+    print("Regression MSE:")
+    print(
+        f"  QUBO (k={len(selected_idx_qubo)}): "
+        f"{evaluate_selected_features(X, y, selected_idx_qubo):.4f}"
+    )
+    print(
+        f"  LASSO (k={len(selected_idx_lasso)}): "
+        f"{evaluate_selected_features(X, y, selected_idx_lasso):.4f}"
+    )
+    print(
+        f"  RF (k={len(selected_idx_rf)}): "
+        f"{evaluate_selected_features(X, y, selected_idx_rf):.4f}"
+    )
+    print(
+        f"  All features: "
+        f"{evaluate_selected_features(X, y, list(range(X.shape[1]))):.4f}"
+    )
