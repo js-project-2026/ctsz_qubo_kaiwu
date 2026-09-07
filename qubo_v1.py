@@ -1,6 +1,26 @@
 # QUBO feature selection — Romero et al., Quantum Mach. Intell. (2025) 7:114
 # Thin script: all logic lives in qubo_model.py, data_loader.py, qubo_experiment.py.
 
+import os
+from pathlib import Path
+
+# --- paths: set these before loading real data ---
+# QUBO_REPO_DIR: folder that contains qubo_model.py (default: this file's directory).
+# QUBO_DATA_DIR: folder with GEO GSE308682 10x files:
+#   GSE308682_filtered_matrix.mtx.gz
+#   GSE308682_filtered_features.tsv.gz
+#   GSE308682_filtered_barcodes.tsv.gz
+#   GSE308682_feature_reference.csv.gz
+os.environ.setdefault("QUBO_REPO_DIR", str(Path(__file__).resolve().parent))
+# Uncomment and edit, or: export QUBO_DATA_DIR=/path/to/gse308682_dir
+# os.environ["QUBO_DATA_DIR"] = "/path/to/gse308682_dir"
+
+import sys
+
+_repo = Path(os.environ["QUBO_REPO_DIR"]).expanduser().resolve()
+if str(_repo) not in sys.path:
+    sys.path.insert(0, str(_repo))
+
 import numpy as np
 
 from qubo_model import (

@@ -1,4 +1,15 @@
-"""Parse 10x Genomics Cell Ranger matrix files (MTX + TSV)."""
+"""Parse 10x Genomics Cell Ranger matrix files (MTX + TSV).
+
+Test data for this repo is GEO GSE308682. Place these files in ``QUBO_DATA_DIR``:
+
+  GSE308682_filtered_matrix.mtx.gz
+  GSE308682_filtered_features.tsv.gz
+  GSE308682_filtered_barcodes.tsv.gz
+  GSE308682_feature_reference.csv.gz   (CRISPR feature reference; optional for counts)
+
+``parse_10x_directory`` prefers ``*_filtered_*`` over ``*_raw_*`` when several
+matrices are present.
+"""
 
 from __future__ import annotations
 
@@ -128,7 +139,12 @@ def _resolve_10x_file(
 
     if not existing:
         raise FileNotFoundError(
-            f"No *{suffix}[.gz] found in {data_dir}"
+            f"No *{suffix}[.gz] found in {data_dir}. "
+            "For GEO GSE308682 expect "
+            "GSE308682_filtered_matrix.mtx.gz, "
+            "GSE308682_filtered_features.tsv.gz, "
+            "GSE308682_filtered_barcodes.tsv.gz "
+            "(and optionally GSE308682_feature_reference.csv.gz)."
         )
 
     def _rank(path: Path) -> tuple[int, str]:

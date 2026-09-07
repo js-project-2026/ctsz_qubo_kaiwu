@@ -1,5 +1,12 @@
 """Load GSE308682 (or any 10x directory) as QUBO feature-selection X, y.
 
+Set QUBO_DATA_DIR to the folder that contains:
+
+  GSE308682_filtered_matrix.mtx.gz
+  GSE308682_filtered_features.tsv.gz
+  GSE308682_filtered_barcodes.tsv.gz
+  GSE308682_feature_reference.csv.gz   (optional; CRISPR target names)
+
 Processing follows Romero et al. Methods §4.1: library-size / mito / detection
 QC, analytic Pearson residuals (Lause et al. 2021), then a highly variable
 gene pool. The continuous target T is either a held-out gene residual or
@@ -16,8 +23,8 @@ from scipy.sparse import csr_matrix, issparse
 
 from tqdm import tqdm
 from tenx_parser import parse_10x_directory, parse_feature_reference
+from paths import data_dir as resolve_data_dir
 
-DEFAULT_DATA_DIR = Path("/Users/jinshang/Projects/sample_data")
 GENE_EXPRESSION = "Gene Expression"
 DEFAULT_CRISPR_TARGETS = ("RUNX1", "MYB", "TCF3", "LMO2", "LDB1", "FLI1", "GATA2")
 # Paper real-data pools were ~5,000 and ~9,661 processed genes.
@@ -25,7 +32,7 @@ DEFAULT_N_TOP_GENES = 5000
 
 
 def load_scrna_qubo_data(
-    data_dir: Path | str = DEFAULT_DATA_DIR,
+    data_dir: Path | str | None = None,
     target_gene: str = "RUNX1",
     n_top_genes: int | None = DEFAULT_N_TOP_GENES,
     min_counts: int = 1000,
@@ -57,7 +64,7 @@ def load_scrna_qubo_data(
     X, y, true_features, feature_names
         true_features is empty for real data (no planted sources).
     """
-    data_dir = Path(data_dir)
+    data_dir = resolve_data_dir(data_dir)
     bundle = parse_10x_directory(data_dir)
     counts = bundle.counts.tocsr()
     feat_names = np.array(bundle.features.names)
@@ -226,8 +233,8 @@ def diffusion_pseudotime(X, gene_names, root_gene="HBE1", n_pcs=30, n_neighbors=
     return y, iroot
 
 
-def load_guide_assignments(data_dir: Path | str = DEFAULT_DATA_DIR):
-    data_dir = Path(data_dir)
+def load_guide_assignments(data_dir: Path | str | None = None):
+    data_dir = resolve_data_dir(data_dir)
     bundle = parse_10x_directory(data_dir)
     types = np.array(bundle.features.types)
     names = np.array(bundle.features.names)
@@ -245,8 +252,8 @@ def _find_gene_index(names: np.ndarray, ids: np.ndarray, query: str) -> int:
     raise KeyError(f"Target gene {query!r} not found in Gene Expression features")
 
 
-def list_crispr_targets(data_dir: Path | str = DEFAULT_DATA_DIR) -> list[str]:
-    ref_files = list(Path(data_dir).glob("*feature_reference.csv*"))
+def list_crispr_targets(data_dir: Path | str | None = None) -> list[str]:
+    ref_files = list(resolve_data_dir(data_dir).glob("*feature_reference.csv*"))
     if not ref_files:
         return list(DEFAULT_CRISPR_TARGETS)
     rows = parse_feature_reference(ref_files[0])

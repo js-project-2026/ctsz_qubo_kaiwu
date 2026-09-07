@@ -9,13 +9,13 @@ from sklearn.linear_model import LinearRegression, lasso_path
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
-from data_loader import DEFAULT_DATA_DIR, DEFAULT_N_TOP_GENES, load_scrna_qubo_data
+from data_loader import DEFAULT_N_TOP_GENES, load_scrna_qubo_data
 from qubo_model import generate_synthetic_data
 
 
 def load_experiment(
     use_real_data=True,
-    data_dir=DEFAULT_DATA_DIR,
+    data_dir=None,
     target_gene="RUNX1",
     n_top_genes=DEFAULT_N_TOP_GENES,
     n_samples=10000,
@@ -23,7 +23,13 @@ def load_experiment(
     target_mode="pseudotime",
     root_gene="HBE1",
 ):
-    """Return X, y, true_features, feature_names (names is None for synthetic)."""
+    """Return X, y, true_features, feature_names (names is None for synthetic).
+
+    Real data uses ``QUBO_DATA_DIR`` unless ``data_dir`` is passed. Expected
+    GSE308682 files: GSE308682_filtered_matrix.mtx.gz,
+    GSE308682_filtered_features.tsv.gz, GSE308682_filtered_barcodes.tsv.gz,
+    GSE308682_feature_reference.csv.gz.
+    """
     if use_real_data:
         X, y, true_features, feature_names = load_scrna_qubo_data(
             data_dir,

@@ -28,7 +28,7 @@
     h2 { font-size: 1.2rem; margin: 32px 0 12px; }
     h3 { font-size: 1rem; margin: 20px 0 8px; }
     p, li { color: var(--ink); }
-    .lede { color: var(--muted); margin: 0 0 24px; }
+    .lede a { color: var(--accent); }
     .banner {
       background: #f8e8e6;
       border: 1px solid #e3c0bb;
@@ -70,6 +70,7 @@
       Paper: Romero, Gupta, Gatlin, Chapkin, Cai,
       <em>Quantum Machine Intelligence</em> (2025) 7:114.
     </p>
+    <p class="lede">English · <a href="compare-romero-2025.zh.html">中文</a></p>
 
     <div class="banner">
       <strong>Cardinality control failed — this is not a k=50 paper figure.</strong>
@@ -280,7 +281,12 @@
 
     <footer>
       Generated from <code>qubo.ipynb</code> outputs after the 5,000-gene DPT + tabu
-      re-run. Data: GEO GSE308682 (not stored in this repository).
+      re-run. Data: GEO GSE308682 (not stored in this repository). Set
+      <code>QUBO_DATA_DIR</code> to the folder containing
+      <code>GSE308682_filtered_matrix.mtx.gz</code>,
+      <code>GSE308682_filtered_features.tsv.gz</code>,
+      <code>GSE308682_filtered_barcodes.tsv.gz</code>, and
+      <code>GSE308682_feature_reference.csv.gz</code>.
     </footer>
   </main>
 </body>

@@ -4,8 +4,6 @@ Python reimplementation of the QUBO (quadratic unconstrained binary optimization
 
 > Romero, Gupta, Gatlin, Chapkin, Cai. *Quantum annealing for enhanced feature selection in single-cell RNA sequencing data analysis.* Quantum Machine Intelligence (2025) 7:114.
 
-Authors’ code: [cailab-tamu/QUBO_feature_selection](https://github.com/cailab-tamu/QUBO_feature_selection).
-
 This repo applies the same **Eq. (4)** cost to **GEO GSE308682** 10x CRISPR scRNA-seq (not the paper’s hESC→EC or PC9 datasets).
 
 ## Method
@@ -30,17 +28,28 @@ Local solvers: D-Wave Ocean `TabuSampler` / `SimulatedAnnealingSampler` (**class
 | `data_loader.py` | 10x load, QC, residuals, HVG, DPT |
 | `tenx_parser.py` | Cell Ranger MTX/TSV(+gz) parser |
 | `qubo_experiment.py` | LASSO path / random forest compare, MSE |
-| `docs/compare-romero-2025.html` | Latest notebook vs paper (open in a browser) |
+| `paths.py` | Resolves `QUBO_REPO_DIR` / `QUBO_DATA_DIR` |
+| `docs/compare-romero-2025.html` | Latest notebook vs paper (English) |
+| `docs/compare-romero-2025.zh.html` | Same report in Chinese, including GSE308682 train/test split |
 
 ## Data
 
-10x files are **not** in git. Point the loader at a Cell Ranger directory (matrix + features + barcodes), default:
+10x files are **not** in git. Set **`QUBO_DATA_DIR`** to the directory that contains GEO **GSE308682**:
 
 ```text
-/Users/<you>/Projects/sample_data
+GSE308682_filtered_matrix.mtx.gz
+GSE308682_filtered_features.tsv.gz
+GSE308682_filtered_barcodes.tsv.gz
+GSE308682_feature_reference.csv.gz
 ```
 
-or set `data_dir` in `load_experiment(...)`. Expected study: **GSE308682**.
+```bash
+export QUBO_DATA_DIR=/path/to/gse308682_dir
+```
+
+Or assign `os.environ["QUBO_DATA_DIR"]` at the top of `qubo_v1.py` / `qubo.ipynb` (see those files). Optional: `QUBO_REPO_DIR` if you launch Python from a directory that does not contain `qubo_model.py`. A template is in `.env.example`.
+
+You can also pass `data_dir=` to `load_experiment(...)`. There is no machine-specific default path.
 
 ## Setup
 
@@ -54,7 +63,7 @@ pip install -r requirements.txt
 
 ## Run
 
-Edit the flags at the top of `qubo.ipynb` / `qubo_v1.py`:
+Set `QUBO_DATA_DIR` (above), then edit the flags at the top of `qubo.ipynb` / `qubo_v1.py`:
 
 ```python
 USE_REAL_DATA = True
@@ -102,7 +111,7 @@ or run `qubo.ipynb` from the first cell. Pairwise MI at \(p=5000\) takes several
 
 ## Results vs the paper
 
-Open [`docs/compare-romero-2025.html`](docs/compare-romero-2025.html).
+Open [`docs/compare-romero-2025.html`](docs/compare-romero-2025.html) or the Chinese version [`docs/compare-romero-2025.zh.html`](docs/compare-romero-2025.zh.html).
 
 **This is not a drop-in replication** of Table 1 or the hESC/PC9 figures:
 
@@ -111,6 +120,3 @@ Open [`docs/compare-romero-2025.html`](docs/compare-romero-2025.html).
 
 Synthetic §2.3 in `qubo_model.generate_synthetic_data` is the setting for Table 1–style source recall (`USE_REAL_DATA = False`).
 
-## License
-
-MIT. The QUBO formulation is from Romero et al. (2025); cite that paper if you use this method.
