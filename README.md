@@ -18,7 +18,7 @@ with \(Q = (1-\alpha)R - \alpha\,\mathrm{diag}(I)\), discrete mutual information
 
 Real-data processing follows the paper’s Methods as closely as this matrix allows: library-size / mito / detection QC, analytic Pearson residuals ([Lause et al. 2021](https://doi.org/10.1038/s41592-021-01346-6)), a highly variable gene pool, and a continuous target \(T\) (scanpy diffusion pseudotime or a held-out gene residual).
 
-Local solvers: D-Wave `TabuSampler` (MATLAB tabu analog) or `SimulatedAnnealingSampler`. Leap hybrid is optional if `DWAVE_API_TOKEN` is set.
+Local solvers: D-Wave Ocean `TabuSampler` / `SimulatedAnnealingSampler` (**classical**, from `dwave-ocean-sdk`). Optional quantum backends: D-Wave **Leap hybrid** (`SOLVER="leap"`) and QBoson **Kaiwu CIM** (`SOLVER="kaiwu_cim"`).
 
 ## Repository layout
 
@@ -58,9 +58,38 @@ Edit the flags at the top of `qubo.ipynb` / `qubo_v1.py`:
 
 ```python
 USE_REAL_DATA = True
-N_TOP_GENES = 5000          # paper-scale pool; pairwise MI is O(p²)
-TARGET_MODE = "pseudotime"  # or "gene" (held-out RUNX1 residual)
-SOLVER = "tabu"             # "sa" | "leap" (needs DWAVE_API_TOKEN)
+N_TOP_GENES = 5000
+TARGET_MODE = "pseudotime"
+SOLVER = "tabu"  # see solver table below
+```
+
+| `SOLVER` | Stack | Hardware | Env |
+| --- | --- | --- | --- |
+| `tabu` | `dwave-ocean-sdk` | classical CPU | — |
+| `sa` | `dwave-ocean-sdk` | classical CPU | — |
+| `leap` | `dwave-ocean-sdk` | D-Wave Leap hybrid | `DWAVE_API_TOKEN` |
+| `custom_sa` | this repo | classical CPU | — |
+| `kaiwu_sa` | [kaiwu SDK](https://kaiwu-sdk-docs.qboson.com/) | classical CPU | optional license |
+| `kaiwu_tabu` | kaiwu SDK | classical CPU | optional license |
+| `kaiwu_cim` | kaiwu CIM + [kaiwu-pytorch-plugin](https://github.com/qboson/kaiwu-pytorch-plugin) | QBoson photonic CIM | `KAIWU_USER_ID`, `KAIWU_SDK_CODE` |
+
+The last notebook run used **`tabu`**: Ocean is installed, but that sampler is not a QPU. To use D-Wave’s cloud hybrid solver, set `SOLVER = "leap"`. To use QBoson’s coherent Ising machine, install Kaiwu and set `SOLVER = "kaiwu_cim"`.
+
+```bash
+pip install kaiwu==1.3.1 torch
+pip install git+https://github.com/qboson/kaiwu-pytorch-plugin.git
+export KAIWU_USER_ID=...
+export KAIWU_SDK_CODE=...
+```
+
+Register at [platform.qboson.com](https://platform.qboson.com/) for CIM quota. The PyTorch plugin is an RBM/BM training layer on top of the same Kaiwu samplers; this repo uses those samplers on the feature-selection \(Q\) matrix (Ising conversion via `kaiwu.conversion.qubo_matrix_to_ising_matrix`).
+
+Do not commit API tokens:
+
+```bash
+export DWAVE_API_TOKEN=...
+export KAIWU_USER_ID=...
+export KAIWU_SDK_CODE=...
 ```
 
 Then:
@@ -70,12 +99,6 @@ python qubo_v1.py
 ```
 
 or run `qubo.ipynb` from the first cell. Pairwise MI at \(p=5000\) takes several minutes; tqdm bars show progress.
-
-Do not commit a D-Wave API token. Use an environment variable only:
-
-```bash
-export DWAVE_API_TOKEN=...
-```
 
 ## Results vs the paper
 

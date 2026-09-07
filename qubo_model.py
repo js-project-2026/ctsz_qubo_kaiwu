@@ -30,6 +30,21 @@ except ImportError:
     HAS_NUMBA = False
     njit = None
 
+try:
+    import kaiwu as _kaiwu
+
+    HAS_KAIWU = True
+except ImportError:
+    HAS_KAIWU = False
+    _kaiwu = None
+
+try:
+    import kaiwu.torch_plugin  # noqa: F401
+
+    HAS_KAIWU_PLUGIN = True
+except ImportError:
+    HAS_KAIWU_PLUGIN = False
+
 from tqdm import tqdm
 
 
@@ -257,38 +272,200 @@ def _sample_to_vec(sample, n):
     return vec
 
 
+def _qubo_to_ising_matrix(Q):
+    """Convert QUBO Q to the Ising matrix Kaiwu Optimizer.solve expects.
+
+    Uses kaiwu.conversion (or kaiwu.qubo) when installed. QUBO linear terms
+    become an extra auxiliary spin; decode with _ising_row_to_binary.
+    """
+    Q = np.asarray(Q, dtype=np.float64)
+    Q = 0.5 * (Q + Q.T)
+    if not HAS_KAIWU:
+        raise ImportError(
+            "Kaiwu solvers need the kaiwu SDK: pip install kaiwu==1.3.1"
+        )
+    conv = getattr(_kaiwu, "conversion", None)
+    if conv is not None and hasattr(conv, "qubo_matrix_to_ising_matrix"):
+        ising, bias = conv.qubo_matrix_to_ising_matrix(Q)
+        return np.asarray(ising, dtype=np.float64), float(bias)
+    qubo_mod = getattr(_kaiwu, "qubo", None)
+    if qubo_mod is not None and hasattr(qubo_mod, "qubo_matrix_to_ising_matrix"):
+        ising, bias = qubo_mod.qubo_matrix_to_ising_matrix(Q)
+        return np.asarray(ising, dtype=np.float64), float(bias)
+    raise ImportError(
+        "kaiwu.conversion.qubo_matrix_to_ising_matrix is missing; upgrade kaiwu"
+    )
+
+
+def _ising_row_to_binary(spins, n_qubo):
+    """Map a ±1 Ising row (possibly with one aux spin) to {0,1}^n_qubo."""
+    s = np.asarray(spins, dtype=np.float64).ravel()
+    s = np.where(s >= 0, 1.0, -1.0)
+    if s.size == n_qubo + 1:
+        s = s[:-1] * s[-1]
+    elif s.size != n_qubo:
+        raise ValueError(
+            f"Ising sample length {s.size} does not match n={n_qubo} or n+1"
+        )
+    return ((s + 1.0) / 2.0).astype(int)
+
+
+def _best_binary_from_ising_samples(samples, Q):
+    n = Q.shape[0]
+    rows = np.atleast_2d(np.asarray(samples))
+    if rows.size == 0:
+        raise RuntimeError("Kaiwu solver returned no samples")
+    best_x = None
+    best_e = np.inf
+    for row in rows:
+        x = _ising_row_to_binary(row, n)
+        e = _energy(Q, x)
+        if e < best_e:
+            best_e = e
+            best_x = x
+    return best_x, float(best_e)
+
+
+def _init_kaiwu_license():
+    if not HAS_KAIWU:
+        return
+    user = os.environ.get("KAIWU_USER_ID") or os.environ.get("USER_ID")
+    code = (
+        os.environ.get("KAIWU_SDK_CODE")
+        or os.environ.get("KAIWU_SDK_TOKEN")
+        or os.environ.get("SDK_CODE")
+    )
+    lic = getattr(_kaiwu, "license", None)
+    if lic is not None and user and code and hasattr(lic, "init"):
+        lic.init(user, code)
+
+
+def _kaiwu_optimizer(kind, num_reads, seed):
+    _init_kaiwu_license()
+    if kind == "kaiwu_sa":
+        return _kaiwu.classical.SimulatedAnnealingOptimizer(
+            size_limit=max(1, int(num_reads)),
+            rand_seed=seed,
+        )
+    if kind == "kaiwu_tabu":
+        return _kaiwu.classical.TabuSearchOptimizer(
+            max_iter=2000,
+            size_limit=max(1, int(num_reads)),
+        )
+    if kind == "kaiwu_cim":
+        user = os.environ.get("KAIWU_USER_ID") or os.environ.get("USER_ID")
+        code = (
+            os.environ.get("KAIWU_SDK_CODE")
+            or os.environ.get("KAIWU_SDK_TOKEN")
+            or os.environ.get("SDK_CODE")
+        )
+        if not user or not code:
+            raise RuntimeError(
+                "kaiwu_cim needs KAIWU_USER_ID and KAIWU_SDK_CODE "
+                "(from https://platform.qboson.com/)"
+            )
+        opt = _kaiwu.cim.CIMOptimizer(
+            user_id=user,
+            sdk_code=code,
+            task_name=os.environ.get("KAIWU_TASK_NAME", "qubo_feature_selection"),
+            wait=True,
+        )
+        reducer = getattr(_kaiwu.cim, "PrecisionReducer", None)
+        if reducer is not None:
+            opt = reducer(
+                opt,
+                precision=8,
+                truncated_precision=10,
+                only_feasible_solution=False,
+            )
+        return opt
+    raise ValueError(f"Unknown Kaiwu solver {kind!r}")
+
+
+def _solve_kaiwu(Q, kind, num_reads, seed):
+    if not HAS_KAIWU:
+        raise ImportError(
+            "Install Kaiwu: pip install kaiwu==1.3.1 "
+            "and optionally git+https://github.com/qboson/kaiwu-pytorch-plugin.git"
+        )
+    ising, _bias = _qubo_to_ising_matrix(Q)
+    worker = _kaiwu_optimizer(kind, num_reads=num_reads, seed=seed)
+    samples = worker.solve(ising)
+    if samples is None:
+        raise RuntimeError(
+            "Kaiwu CIM returned None (task still running). Use wait=True / poll."
+        )
+    return _best_binary_from_ising_samples(samples, Q)
+
+
+def available_solvers():
+    """Installed backends. 'quantum' means cloud QPU / photonic CIM, not local SA."""
+    return {
+        "tabu": {"installed": HAS_TABU, "kind": "classical", "stack": "dwave-ocean-sdk"},
+        "sa": {"installed": HAS_DWAVE, "kind": "classical", "stack": "dwave-ocean-sdk"},
+        "leap": {"installed": HAS_DWAVE, "kind": "quantum-hybrid", "stack": "dwave-ocean-sdk"},
+        "custom_sa": {"installed": True, "kind": "classical", "stack": "this repo"},
+        "kaiwu_sa": {"installed": HAS_KAIWU, "kind": "classical", "stack": "kaiwu SDK"},
+        "kaiwu_tabu": {"installed": HAS_KAIWU, "kind": "classical", "stack": "kaiwu SDK"},
+        "kaiwu_cim": {
+            "installed": HAS_KAIWU,
+            "kind": "quantum",
+            "stack": "kaiwu CIM (QBoson photonic); kaiwu-pytorch-plugin optional",
+        },
+    }
+
+
 def solver_banner(solver=None):
     solver = (solver or _default_solver()).lower()
     labels = {
-        "tabu": "Using dwave.samplers.TabuSampler (MATLAB tabu analog)",
-        "sa": "Using dwave.samplers.SimulatedAnnealingSampler",
-        "leap": "Using dwave.system.LeapHybridSampler (needs DWAVE_API_TOKEN)",
-        "custom_sa": "Using unconstrained bit-flip simulated annealing",
+        "tabu": "D-Wave Ocean TabuSampler (classical, local; MATLAB tabu analog)",
+        "sa": "D-Wave Ocean SimulatedAnnealingSampler (classical, local)",
+        "leap": "D-Wave LeapHybridSampler (quantum-classical hybrid; DWAVE_API_TOKEN)",
+        "custom_sa": "Built-in bit-flip simulated annealing (classical)",
+        "kaiwu_sa": "Kaiwu SimulatedAnnealingOptimizer (classical; kaiwu SDK)",
+        "kaiwu_tabu": "Kaiwu TabuSearchOptimizer (classical; kaiwu SDK)",
+        "kaiwu_cim": "Kaiwu CIMOptimizer (QBoson photonic CIM; KAIWU_USER_ID + KAIWU_SDK_CODE)",
     }
-    return labels.get(solver, f"Using solver={solver}")
+    extra = ""
+    if solver.startswith("kaiwu") and HAS_KAIWU_PLUGIN:
+        extra = " [kaiwu.torch_plugin imported]"
+    elif solver.startswith("kaiwu") and not HAS_KAIWU:
+        extra = " [kaiwu not installed]"
+    return labels.get(solver, f"Using solver={solver}") + extra
 
 
 def _default_solver():
-    """Paper used MATLAB tabu + Leap hybrid. Local tabu is the closest default."""
+    """Paper used MATLAB tabu + Leap hybrid. Local Ocean tabu is the closest default."""
     if HAS_TABU:
         return "tabu"
     if HAS_DWAVE:
         return "sa"
+    if HAS_KAIWU:
+        return "kaiwu_sa"
     return "custom_sa"
 
 
 def solve_qubo(Q, num_reads=100, seed=None, max_iter=20000, solver=None):
-    """Minimize QUBO.
+    """Minimize QUBO. Switch backends with ``solver``.
 
-    solver:
-      ``None`` — tabu if dwave-samplers is installed, else SA
-      ``"tabu"`` — dwave TabuSampler (MATLAB tabu analog; local)
-      ``"sa"`` — dwave SimulatedAnnealingSampler
-      ``"leap"`` — LeapHybridSampler (needs DWAVE_API_TOKEN)
-      ``"custom_sa"`` — unconstrained bit-flip SA in this file
+    D-Wave Ocean (``dwave-ocean-sdk`` is already a dependency):
+      ``tabu`` / ``sa`` — classical local samplers (what the last notebook used)
+      ``leap`` — Leap hybrid (needs DWAVE_API_TOKEN; this is the D-Wave cloud QPU path)
+
+    Kaiwu / QBoson ([kaiwu-pytorch-plugin](https://github.com/qboson/kaiwu-pytorch-plugin)):
+      ``kaiwu_sa`` / ``kaiwu_tabu`` — classical, via kaiwu SDK
+      ``kaiwu_cim`` — photonic coherent Ising machine (needs KAIWU_USER_ID + KAIWU_SDK_CODE)
+
+    ``custom_sa`` — bit-flip SA in this file.
     """
     solver = (solver or _default_solver()).lower()
+    aliases = {"cim": "kaiwu_cim", "kaiwu": "kaiwu_cim", "dwave_sa": "sa", "ocean_tabu": "tabu"}
+    solver = aliases.get(solver, solver)
     n = Q.shape[0]
+
+    if solver in {"kaiwu_sa", "kaiwu_tabu", "kaiwu_cim"}:
+        return _solve_kaiwu(Q, solver, num_reads=num_reads, seed=seed)
+
     qubo = _qubo_dict(Q, show_progress=n >= 500)
 
     if solver == "leap":
@@ -303,17 +480,21 @@ def solve_qubo(Q, num_reads=100, seed=None, max_iter=20000, solver=None):
 
     if solver == "tabu":
         if not HAS_TABU:
-            raise ImportError("TabuSampler requires dwave-samplers")
+            raise ImportError("TabuSampler requires dwave-ocean-sdk / dwave-samplers")
         result = TabuSampler().sample_qubo(qubo, num_reads=num_reads, seed=seed)
         return _sample_to_vec(result.first.sample, n), float(result.first.energy)
 
     if solver == "sa":
         if not HAS_DWAVE:
-            raise ImportError("SimulatedAnnealingSampler requires dwave-samplers")
+            raise ImportError("SimulatedAnnealingSampler requires dwave-ocean-sdk")
         result = SimulatedAnnealingSampler().sample_qubo(
             qubo, num_reads=num_reads, seed=seed
         )
         return _sample_to_vec(result.first.sample, n), float(result.first.energy)
+
+    if solver != "custom_sa":
+        known = ", ".join(sorted(available_solvers()))
+        raise ValueError(f"Unknown solver {solver!r}. Choose one of: {known}")
 
     vec, energy, _ = custom_simulated_annealing(Q, max_iter=max_iter, seed=seed)
     return vec, energy

@@ -3,7 +3,12 @@
 
 import numpy as np
 
-from qubo_model import compute_mutual_information_matrix, solve_qubo_target_k, solver_banner
+from qubo_model import (
+    compute_mutual_information_matrix,
+    solve_qubo_target_k,
+    solver_banner,
+    available_solvers,
+)
 from qubo_experiment import (
     compare_with_lasso_rfr,
     load_experiment,
@@ -11,13 +16,16 @@ from qubo_experiment import (
     target_cardinality,
 )
 
-# Paper-like real-data settings. Leap hybrid: SOLVER = "leap" and DWAVE_API_TOKEN.
+# Paper-like real-data settings.
+# Solvers: tabu | sa | leap | custom_sa | kaiwu_sa | kaiwu_tabu | kaiwu_cim
+# leap needs DWAVE_API_TOKEN. kaiwu_cim needs KAIWU_USER_ID + KAIWU_SDK_CODE.
 USE_REAL_DATA = True
 N_TOP_GENES = 5000
 TARGET_MODE = "pseudotime"
 SOLVER = "tabu"
 
 print(solver_banner(SOLVER))
+print("Available solvers:", {k: v["installed"] for k, v in available_solvers().items()})
 
 X, y, true_features, feature_names = load_experiment(
     use_real_data=USE_REAL_DATA,
