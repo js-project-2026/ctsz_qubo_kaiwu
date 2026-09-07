@@ -56,6 +56,16 @@
     .fill.paper { background: #7a7468; }
     .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .card { background: var(--card); border: 1px solid var(--line); padding: 14px 16px; }
+    .formula {
+      background: var(--card);
+      border: 1px solid var(--line);
+      padding: 18px 16px;
+      margin: 12px 0 16px;
+      text-align: center;
+      font-size: 1.12rem;
+      line-height: 1.9;
+    }
+    .formula-sub { margin-top: 8px; font-size: 1rem; color: var(--muted); }
     footer { margin-top: 36px; color: var(--muted); font-size: 0.85rem; }
     code { font-size: 0.88em; }
     @media (max-width: 720px) {
@@ -166,6 +176,12 @@
     </p>
 
     <h2>2. 方案与论文对照</h2>
+    <div class="formula" role="math">
+      min<sub><em>F</em></sub>
+      [ −α ∑<sub><em>i</em></sub> <em>I</em><sub><em>i</em></sub> <em>F</em><sub><em>i</em></sub>
+      + (1−α) ∑<sub><em>i,j</em></sub> <em>R</em><sub><em>ij</em></sub> <em>F</em><sub><em>i</em></sub> <em>F</em><sub><em>j</em></sub> ]
+      <div class="formula-sub"><em>Q</em> = (1−α)<em>R</em> − α diag(<em>I</em>)</div>
+    </div>
     <table>
       <thead>
         <tr><th>维度</th><th>Romero 等</th><th>本次运行</th><th>是否一致</th></tr>
@@ -191,8 +207,8 @@
         </tr>
         <tr>
           <td>代价函数</td>
-          <td>式 (4)：min −α I·F + (1−α) FᵀRF</td>
-          <td>Q = (1−α)R − α diag(I)，R/(k−1)</td>
+          <td>式 (4) 如上</td>
+          <td><em>Q</em> = (1−α)<em>R</em> − α diag(<em>I</em>)，<em>R</em>/(<em>k</em>−1)</td>
           <td class="ok">是</td>
         </tr>
         <tr>

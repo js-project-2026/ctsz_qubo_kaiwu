@@ -8,13 +8,13 @@ This repo applies the same **Eq. (4)** cost to **GEO GSE308682** 10x CRISPR scRN
 
 ## Method
 
-\[
-\min_F -\alpha \sum_i I_i F_i + (1-\alpha)\sum_{i,j} R_{ij} F_i F_j
-\]
+$$
+\min_{F} \left[ -\alpha \sum_{i} I_{i} F_{i} + (1-\alpha)\sum_{i,j} R_{ij} F_{i} F_{j} \right]
+$$
 
-with \(Q = (1-\alpha)R - \alpha\,\mathrm{diag}(I)\), discrete mutual information \(I\) and \(R\) from quantile bins, and \(\alpha\) searched so the unconstrained solution has about \(k\) ones (authors’ \(R/(k-1)\) scaling).
+with $Q = (1-\alpha)R - \alpha\,\mathrm{diag}(I)$, discrete mutual information $I$ and $R$ from quantile bins, and $\alpha$ searched so the unconstrained solution has about $k$ ones (authors’ $R/(k-1)$ scaling).
 
-Real-data processing follows the paper’s Methods as closely as this matrix allows: library-size / mito / detection QC, analytic Pearson residuals ([Lause et al. 2021](https://doi.org/10.1038/s41592-021-01346-6)), a highly variable gene pool, and a continuous target \(T\) (scanpy diffusion pseudotime or a held-out gene residual).
+Real-data processing follows the paper’s Methods as closely as this matrix allows: library-size / mito / detection QC, analytic Pearson residuals ([Lause et al. 2021](https://doi.org/10.1038/s41592-021-01346-6)), a highly variable gene pool, and a continuous target $T$ (scanpy diffusion pseudotime or a held-out gene residual).
 
 Local solvers: D-Wave Ocean `TabuSampler` / `SimulatedAnnealingSampler` (**classical**, from `dwave-ocean-sdk`). Optional quantum backends: D-Wave **Leap hybrid** (`SOLVER="leap"`) and QBoson **Kaiwu CIM** (`SOLVER="kaiwu_cim"`).
 
@@ -24,13 +24,14 @@ Local solvers: D-Wave Ocean `TabuSampler` / `SimulatedAnnealingSampler` (**class
 | --- | --- |
 | `qubo.ipynb` | Notebook (thin wrapper; `%autoreload` the `.py` modules) |
 | `qubo_v1.py` | Same experiment as a script |
-| `qubo_model.py` | Synthetic data, MI, \(Q\), solvers, \(\alpha\) search |
+| `qubo_model.py` | Synthetic data, MI, $Q$, solvers, $\alpha$ search |
 | `data_loader.py` | 10x load, QC, residuals, HVG, DPT |
 | `tenx_parser.py` | Cell Ranger MTX/TSV(+gz) parser |
 | `qubo_experiment.py` | LASSO path / random forest compare, MSE |
 | `paths.py` | Resolves `QUBO_REPO_DIR` / `QUBO_DATA_DIR` |
 | `docs/compare-romero-2025.html` | Latest notebook vs paper (English) |
 | `docs/compare-romero-2025.zh.html` | Same report in Chinese, including GSE308682 train/test split |
+| `docs/briefing-qubo-effort.html` | Bilingual progress report (2026-09-07): panel goal, tabu results with charts, Kaiwu CIM next |
 
 ## Data
 
@@ -91,7 +92,7 @@ export KAIWU_USER_ID=...
 export KAIWU_SDK_CODE=...
 ```
 
-Register at [platform.qboson.com](https://platform.qboson.com/) for CIM quota. The PyTorch plugin is an RBM/BM training layer on top of the same Kaiwu samplers; this repo uses those samplers on the feature-selection \(Q\) matrix (Ising conversion via `kaiwu.conversion.qubo_matrix_to_ising_matrix`).
+Register at [platform.qboson.com](https://platform.qboson.com/) for CIM quota. The PyTorch plugin is an RBM/BM training layer on top of the same Kaiwu samplers; this repo uses those samplers on the feature-selection $Q$ matrix (Ising conversion via `kaiwu.conversion.qubo_matrix_to_ising_matrix`).
 
 Do not commit API tokens:
 
@@ -107,7 +108,7 @@ Then:
 python qubo_v1.py
 ```
 
-or run `qubo.ipynb` from the first cell. Pairwise MI at \(p=5000\) takes several minutes; tqdm bars show progress.
+or run `qubo.ipynb` from the first cell. Pairwise MI at $p=5000$ takes several minutes; tqdm bars show progress.
 
 ## Results vs the paper
 
@@ -115,7 +116,7 @@ Open [`docs/compare-romero-2025.html`](docs/compare-romero-2025.html) or the Chi
 
 **This is not a drop-in replication** of Table 1 or the hESC/PC9 figures:
 
-- Different tissue and \(T\) (CRISPR hematopoiesis DPT vs endothelial / TKI trajectories).
+- Different tissue and $T$ (CRISPR hematopoiesis DPT vs endothelial / TKI trajectories).
 - The 5,000-gene + tabu notebook run returned **|F\*|=2,456** instead of **k=50** (energy large and positive). Treat that gene list as an incomplete solve, not a paper-style top-50 set.
 
 Synthetic §2.3 in `qubo_model.generate_synthetic_data` is the setting for Table 1–style source recall (`USE_REAL_DATA = False`).

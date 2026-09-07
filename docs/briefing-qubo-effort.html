@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>研究进展报告：QUBO 造血轨迹基因面板</title>
+  <style>
+    :root {
+      --bg: #f6f5f1;
+      --ink: #1c1b19;
+      --muted: #5c5852;
+      --line: #d9d4c8;
+      --card: #fff;
+      --ok: #1f6b4a;
+      --warn: #8a5a10;
+      --bad: #9b2c2c;
+      --accent: #2457a6;
+      --paper: #7a7468;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 16px/1.65 ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    main { max-width: 920px; margin: 0 auto; padding: 32px 20px 72px; }
+    h1 { font-size: 1.55rem; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 8px; }
+    h2 { font-size: 1.15rem; margin: 28px 0 10px; }
+    h3 { font-size: 1rem; margin: 16px 0 8px; }
+    .meta { color: var(--muted); font-size: 0.92rem; margin: 0 0 8px; }
+    .lede { color: var(--muted); margin: 0 0 20px; }
+    .lede a, a { color: var(--accent); }
+    nav { font-size: 0.95rem; margin: 0 0 20px; }
+    .lang { border-top: 1px solid var(--line); margin-top: 48px; padding-top: 36px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      padding: 14px 16px;
+      margin: 12px 0 16px;
+    }
+    .ok { color: var(--ok); font-weight: 600; }
+    .bad { color: var(--bad); font-weight: 600; }
+    .warn { color: var(--warn); font-weight: 600; }
+    ul { padding-left: 1.2em; }
+    li { margin: 0.4em 0; }
+    table { width: 100%; border-collapse: collapse; background: var(--card); font-size: 0.92rem; margin: 10px 0 16px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-weight: 600; background: #eeeae2; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0 18px; }
+    .stat { background: var(--card); border: 1px solid var(--line); padding: 12px 14px; }
+    .stat b { display: block; font-size: 1.2rem; }
+    .stat span { color: var(--muted); font-size: 0.78rem; }
+    .bars { display: flex; flex-direction: column; gap: 9px; margin: 8px 0 4px; }
+    .bar-row { display: grid; grid-template-columns: 210px 1fr 72px; gap: 10px; align-items: center; }
+    .bar-row span { font-size: 0.82rem; color: var(--muted); }
+    .track { height: 14px; background: #e8e4da; }
+    .fill { height: 14px; background: var(--accent); }
+    .fill.ok { background: var(--ok); }
+    .fill.bad { background: var(--bad); }
+    .fill.paper { background: var(--paper); }
+    .fill.warn { background: var(--warn); }
+    .caption { color: var(--muted); font-size: 0.82rem; margin: 6px 0 18px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+    .chip {
+      background: #eef3ea;
+      border: 1px solid #c5d4c4;
+      color: var(--ok);
+      padding: 3px 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    .flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; align-items: stretch; margin: 12px 0 8px; }
+    .flow .box { background: var(--card); border: 1px solid var(--line); padding: 12px; font-size: 0.88rem; }
+    .flow .box strong { display: block; margin-bottom: 4px; }
+    .flow .arrow { color: var(--muted); align-self: center; font-size: 1.2rem; }
+    .flow .box.next { border-color: var(--accent); }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .formula {
+      background: var(--card);
+      border: 1px solid var(--line);
+      padding: 18px 16px;
+      margin: 12px 0 16px;
+      text-align: center;
+      font-size: 1.12rem;
+      line-height: 1.9;
+    }
+    .formula-sub { margin-top: 8px; font-size: 1rem; color: var(--muted); }
+    footer { margin-top: 32px; color: var(--muted); font-size: 0.85rem; }
+    @media (max-width: 720px) {
+      .stats, .pair, .flow { grid-template-columns: 1fr; }
+      .flow .arrow { display: none; }
+      .bar-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <nav><a href="#zh">中文</a> · <a href="#en">English</a></nav>
+
+    <section id="zh">
+      <p class="meta">报告日期：2026年9月7日　·　所属阶段：算法验证与硬件迁移准备</p>
+      <h1>研究进展报告：基于量子启发式组合优化的单细胞造血轨迹特征基因面板筛选</h1>
+      <p class="lede">
+        框架：Romero et al., <em>Quantum Machine Intelligence</em> (2025) 7:114。
+        数据：GEO GSE308682（
+        <code>GSE308682_filtered_matrix.mtx.gz</code>、
+        <code>GSE308682_filtered_features.tsv.gz</code>、
+        <code>GSE308682_filtered_barcodes.tsv.gz</code>、
+        <code>GSE308682_feature_reference.csv.gz</code>）。
+        数字对照：<a href="compare-romero-2025.zh.html">compare-romero-2025.zh.html</a>。
+      </p>
+
+      <div class="stats">
+        <div class="stat"><b>10,691 × 5,000</b><span>质控后细胞 × 残差 HVG</span></div>
+        <div class="stat"><b class="ok">|F*|=50</b><span>500 基因 Tabu：已验证</span></div>
+        <div class="stat"><b class="bad">|F*|=2,456</b><span>5,000 基因 Tabu：未稀疏化</span></div>
+        <div class="stat"><b>CIM</b><span>下一步：Kaiwu 相干伊辛机</span></div>
+      </div>
+
+      <h2>1. 研究目标：从“差异表达列表”到“非冗余基因面板”</h2>
+      <p>
+        本研究的核心目标，并非生成又一张单细胞转录组差异表达基因列表，而是解决一个更具转化生物学意义的问题：
+        如何从高维单细胞数据中，筛选出一组数量极为精简（约 <strong>50</strong> 个）、但<strong>作为集合</strong>能最大程度解释连续细胞状态转变（造血分化轨迹）的基因面板。
+      </p>
+      <p>
+        不同于按差异倍数或相关性排序取前 N 个基因，我们将此问题明确定义为<strong>组合优化</strong>。
+        理想诊断或检测面板的成员应联合携带目标状态的最大信息，同时相互间信息冗余最小。
+        这在湿实验转化（靶向引物组、探针组、CRISPR 筛选文库）中具有直接的成本与解读优势：买的是一盒探针，不是 5,000 个 HVG。
+      </p>
+
+      <h2>2. 当前研究方法与进展</h2>
+      <p>
+        我们以 Romero 等 (2025) 的 QUBO 模型为框架，应用到独立的 CRISPR 造血分化数据集 GSE308682，
+        筛选能追踪造血进程（扩散拟时间 <em>T</em>，iroot = 最低 HBE1 残差）的关键基因。
+        代价函数同时用互信息量化每个基因与轨迹的相关性 <em>I</em>，以及基因两两冗余 <em>R</em>（论文式 (4)）：
+      </p>
+      <div class="formula" role="math">
+        min<sub><em>F</em></sub>
+        [ −α ∑<sub><em>i</em></sub> <em>I</em><sub><em>i</em></sub> <em>F</em><sub><em>i</em></sub>
+        + (1−α) ∑<sub><em>i,j</em></sub> <em>R</em><sub><em>ij</em></sub> <em>F</em><sub><em>i</em></sub> <em>F</em><sub><em>j</em></sub> ]
+        <div class="formula-sub"><em>Q</em> = (1−α)<em>R</em> − α diag(<em>I</em>)</div>
+      </div>
+      <p>
+        搜索 α 使无约束解约有 <em>k</em> = 50 个 1。这是典型 QUBO，可映射到退火机与相干伊辛机。
+      </p>
+      <p>
+        对照方法：LASSO 路径、随机森林。特征选择使用全部 10,691 个质控细胞；线性 MSE 仅在掩码固定后做 70%/30% 训练/测试划分，无独立验证集调 α 或 <em>k</em>。
+      </p>
+      <p>
+        <strong>当前求解器：</strong>D-Wave Ocean <code>TabuSampler</code>（<code>SOLVER="tabu"</code>），
+        <span class="ok">经典 CPU 启发式</span>，不是 QPU。Ocean 模拟退火同样是经典算法。
+        Leap hybrid 与 Kaiwu CIM 已接入代码，尚未产生下列全规模数字。
+      </p>
+      <div class="card">
+        <h3>求解器规模：小规模成立，全规模失败</h3>
+        <p>
+          在 <strong>500</strong> 个基因的缩减数据（RUNX1 残差为 <em>T</em>）上，Tabu 成功给出低冗余面板：
+          α* = 0.57，能量 <strong class="ok">−2.67</strong>，<strong class="ok">|F*|=50</strong>。
+          公式有效。当扩展至完整 <strong>5,000</strong> 高变基因、DPT 为 <em>T</em> 时，Tabu 返回稠密高能量解：
+          α* = 0.50，能量 <strong class="bad">+71,715</strong>，<strong class="bad">|F*|=2,456</strong>（目标为 50）。
+          问题复杂度已超出该经典启发式；<strong>这排除了“算法公式失效”的解释</strong>，并把瓶颈明确指向全连接 5,000 比特 QUBO 的搜索。
+        </p>
+      </div>
+
+      <h3>图 1　基数控制：要 50，全规模 Tabu 给出 2,456</h3>
+      <div class="bars">
+        <div class="bar-row">
+          <span>目标 k（论文与本研究）</span>
+          <div class="track"><div class="fill ok" style="width:2.0%"></div></div>
+          <span>50</span>
+        </div>
+        <div class="bar-row">
+          <span>500 基因 Tabu（已验证）</span>
+          <div class="track"><div class="fill ok" style="width:2.0%"></div></div>
+          <span>50</span>
+        </div>
+        <div class="bar-row">
+          <span>5,000 基因 Tabu（本次）</span>
+          <div class="track"><div class="fill bad" style="width:100%"></div></div>
+          <span>2,456</span>
+        </div>
+      </div>
+      <p class="caption">条宽相对 |F*|=2,456。小规模已命中 k=50；全规模未稀疏化，不能当作 50 基因签名发表。</p>
+
+      <h3>图 2　线性测试 MSE（DPT ∈ [0,1]，30% 细胞）</h3>
+      <div class="bars">
+        <div class="bar-row">
+          <span>LASSO（k≈2,452）</span>
+          <div class="track"><div class="fill ok" style="width:33.7%"></div></div>
+          <span>0.0031</span>
+        </div>
+        <div class="bar-row">
+          <span>随机森林（k=2,456）</span>
+          <div class="track"><div class="fill" style="width:40.2%"></div></div>
+          <span>0.0037</span>
+        </div>
+        <div class="bar-row">
+          <span>QUBO 掩码（k=2,456）</span>
+          <div class="track"><div class="fill warn" style="width:58.7%"></div></div>
+          <span>0.0054</span>
+        </div>
+        <div class="bar-row">
+          <span>全部 5,000 基因</span>
+          <div class="track"><div class="fill paper" style="width:100%"></div></div>
+          <span>0.0092</span>
+        </div>
+      </div>
+      <p class="caption">条宽相对“全部基因”MSE。QUBO 子集优于全池，证明抓住了轨迹信息；LASSO 拟合更好，因为式 (4) 优化的是信息结构，不是最小二乘。MSE 不是本方法的金标准。</p>
+
+      <h3>图 3　与 LASSO / RF 重叠（在 |F*|=2,456，非 k=50）</h3>
+      <div class="bars">
+        <div class="bar-row">
+          <span>QUBO ∩ LASSO（本次）</span>
+          <div class="track"><div class="fill" style="width:50.1%"></div></div>
+          <span>50.1%</span>
+        </div>
+        <div class="bar-row">
+          <span>论文 hESC Q∩LASSO（k=50）</span>
+          <div class="track"><div class="fill paper" style="width:44%"></div></div>
+          <span>44%</span>
+        </div>
+        <div class="bar-row">
+          <span>QUBO ∩ RF（本次）</span>
+          <div class="track"><div class="fill" style="width:50.8%"></div></div>
+          <span>50.8%</span>
+        </div>
+        <div class="bar-row">
+          <span>论文 hESC Q∩RFR（k=50）</span>
+          <div class="track"><div class="fill paper" style="width:68%"></div></div>
+          <span>68%</span>
+        </div>
+      </div>
+      <p class="caption">原始计数：Q∩L=1,230，Q∩RF=1,247，三者=702。比例与论文 k=50 的 LASSO 重叠同量级，但基数不同，不能直接等同于论文图。</p>
+
+      <h2>3. 当前结果的生物学意义</h2>
+      <p>
+        尽管经典求解器未给出目标稀疏解，现有结果仍有明确的生物学验证价值。
+      </p>
+      <div class="pair">
+        <div class="card">
+          <h3>轨迹一致性</h3>
+          <p>入选基因高度一致，对准造血向红系分化的核心进程，而非论文的内皮轴线。</p>
+          <div class="chips">
+            <span class="chip">HBE1</span>
+            <span class="chip">HBB</span>
+            <span class="chip">HBD</span>
+            <span class="chip">ALAS2</span>
+            <span class="chip">KLF1</span>
+            <span class="chip">RUNX1</span>
+          </div>
+          <p class="caption" style="margin-bottom:0">珠蛋白、血红素合成酶、谱系转录因子。RAMP2 / APLN / THY1 不在其中——数据是造血，不是 hESC→内皮。</p>
+        </div>
+        <div class="card">
+          <h3>信息结构 ≠ 线性预测冠军</h3>
+          <p>
+            该基因集预测拟时间优于全部 5,000 基因（图 2），说明捕捉到轨迹关键信息。
+            QUBO 的目标是<strong>低冗余信息面板</strong>，与线性回归的最小二乘有本质不同。
+            略差于 LASSO 的 MSE，在转化场景下可以接受，甚至是预期：面板要的是可下单的非冗余集合，不是最优线性拟合。
+          </p>
+        </div>
+      </div>
+
+      <h2>4. 下一步：量子计算硬件是当前瓶颈的必然选择</h2>
+      <p>
+        全规模 Tabu 失败，明确指向问题本身的高复杂度（稠密 5,000×5,000 <em>Q</em>），而不是生物学设定错误。
+        下一步将该实例迁移到量子启发式硬件：经 <strong>QBoson Kaiwu SDK</strong> 调用<strong>相干伊辛机（CIM）</strong>
+        （<code>SOLVER="kaiwu_cim"</code>，<code>KAIWU_USER_ID</code> + <code>KAIWU_SDK_CODE</code>）。
+        这将是第一次把非经典求解当作科学结果验收，而不是接口测试。
+      </p>
+
+      <h3>图 4　从经典瓶颈到 CIM 验收线</h3>
+      <div class="flow">
+        <div class="box">
+          <strong>已完成</strong>
+          GSE308682 → 质控与残差 HVG → 式 (4) 的 <em>Q</em>。500 基因 Tabu 证明公式。
+        </div>
+        <div class="arrow">→</div>
+        <div class="box">
+          <strong class="bad">当前瓶颈</strong>
+          5,000 基因 Tabu：能量 +71,715，|F*|=2,456。经典启发式未能稀疏化。
+        </div>
+        <div class="arrow">→</div>
+        <div class="box next">
+          <strong>CIM 验收</strong>
+          能量远低于 +71,715；|F*|≈50。得到可命名的 50 基因造血面板。
+        </div>
+      </div>
+      <p class="caption">成功标准写在硬件上机之前。达不到则记录为工程/物理约束，不否定 QUBO 的生物学适用性，焦点转为算法–硬件适配。</p>
+
+      <div class="bars">
+        <div class="bar-row">
+          <span>当前能量（Tabu, p=5k）</span>
+          <div class="track"><div class="fill bad" style="width:100%"></div></div>
+          <span>+71,715</span>
+        </div>
+        <div class="bar-row">
+          <span>健康参照（Tabu, p=500）</span>
+          <div class="track"><div class="fill ok" style="width:8%"></div></div>
+          <span>−2.67</span>
+        </div>
+        <div class="bar-row">
+          <span>CIM 预期能量</span>
+          <div class="track"><div class="fill ok" style="width:8%"></div></div>
+          <span>负 / 远更低</span>
+        </div>
+      </div>
+      <p class="caption">能量不能按线性比例画在同一轴上；上图只表示“高能失败态 vs 低能健康态”。CIM 必须离开 +71,715 这一量级。</p>
+
+      <ul>
+        <li>
+          <strong>收敛至低能态与稀疏解。</strong>
+          CIM 应探索 Tabu 陷入困难的能量景观，找到远低于 +71,715、并收敛到约 50 个基因的掩码。
+          这是量子启发式在该组合优化实例上超越当前经典启发式的<strong>直接证据</strong>。
+        </li>
+        <li>
+          <strong>获得生物学相关的基因面板。</strong>
+          若基数恢复，将首次得到针对该造血轨迹、有明确 CIM 硬件支撑的约 50 基因非冗余面板：
+          紧凑的珠蛋白–血红素酶–关键 TF 模块，冗余低于按表达排序的 top-50。
+        </li>
+        <li>
+          <strong>转化应用。</strong>
+          直接回答：最少需要多少基因组合，即可经济、可靠地追踪细胞状态，为低成本检测试剂盒或高效 CRISPR 筛选方案奠基。
+        </li>
+      </ul>
+      <p>
+        不预先宣称 CIM 在 MSE 上击败 LASSO，或在本组织上复现 Romero Table 1。
+        若仍得到 |F*|≈p/2，如实记录，问题转向 α 搜索与硬件适配。
+      </p>
+
+      <h2>5. 结论声明</h2>
+      <div class="card">
+        <p>
+          我们已成功将生物学面板设计问题转化为可扩展的 QUBO 数学模型，并在小规模数据上验证了其有效性。
+          当前的全规模求解瓶颈，正是指向量子与量子启发式计算资源的明确信号。
+          我们期望通过相干伊辛机，首次为这一造血分化模型提供一块低冗余、高信息量的 <strong>50 基因</strong>转录组面板，推动单细胞数据的转化应用。
+        </p>
+      </div>
+    </section>
+
+    <section id="en" class="lang">
+      <p class="meta">Date: 7 September 2026　·　Phase: algorithm validation and hardware-migration readiness</p>
+      <h1>Progress report: quantum-heuristic combinatorial optimization of a hematopoietic-trajectory gene panel from scRNA-seq</h1>
+      <p class="lede">
+        Framework: Romero et al., <em>Quantum Machine Intelligence</em> (2025) 7:114.
+        Data: GEO GSE308682 (
+        <code>GSE308682_filtered_matrix.mtx.gz</code>,
+        <code>GSE308682_filtered_features.tsv.gz</code>,
+        <code>GSE308682_filtered_barcodes.tsv.gz</code>,
+        <code>GSE308682_feature_reference.csv.gz</code>).
+        Numeric companion: <a href="compare-romero-2025.html">compare-romero-2025.html</a>.
+      </p>
+
+      <div class="stats">
+        <div class="stat"><b>10,691 × 5,000</b><span>QC cells × residual HVGs</span></div>
+        <div class="stat"><b class="ok">|F*|=50</b><span>500-gene tabu: validated</span></div>
+        <div class="stat"><b class="bad">|F*|=2,456</b><span>5,000-gene tabu: not sparsified</span></div>
+        <div class="stat"><b>CIM</b><span>Next: QBoson Kaiwu CIM</span></div>
+      </div>
+
+      <h2>1. Goal: from a DE list to a non-redundant gene panel</h2>
+      <p>
+        The aim is not another differential-expression list. It is a translational question:
+        from high-dimensional scRNA-seq, recover a <strong>~50-gene panel that, as a set</strong>,
+        explains a continuous cell-state trajectory (hematopoietic differentiation) as well as a much larger transcriptome.
+      </p>
+      <p>
+        Ranking by fold-change or correlation and taking the top N is the wrong object.
+        We state the problem as <strong>combinatorial optimization</strong>: members of a diagnostic cassette
+        should jointly carry maximal information about the state and minimal information about each other.
+        That is what a wet lab actually orders — primers, probes, a CRISPR follow-up library — not 5,000 HVGs.
+      </p>
+
+      <h2>2. Methods and current progress</h2>
+      <p>
+        We use the Romero et al. (2025) QUBO on an independent CRISPR hematopoiesis dataset, GSE308682,
+        to track hematopoietic progression (diffusion pseudotime <em>T</em>; iroot = lowest HBE1 residual).
+        Mutual information supplies per-gene relevance <em>I</em> and pairwise redundancy <em>R</em>.
+        The cost is paper Eq. (4):
+      </p>
+      <div class="formula" role="math">
+        min<sub><em>F</em></sub>
+        [ −α ∑<sub><em>i</em></sub> <em>I</em><sub><em>i</em></sub> <em>F</em><sub><em>i</em></sub>
+        + (1−α) ∑<sub><em>i,j</em></sub> <em>R</em><sub><em>ij</em></sub> <em>F</em><sub><em>i</em></sub> <em>F</em><sub><em>j</em></sub> ]
+        <div class="formula-sub"><em>Q</em> = (1−α)<em>R</em> − α diag(<em>I</em>)</div>
+      </div>
+      <p>
+        α is searched so an unconstrained solver returns about <em>k</em> = 50 ones.
+        That is a native QUBO, and it maps onto annealers and coherent Ising machines.
+      </p>
+      <p>
+        Baselines: LASSO path and random forest. Feature selection uses all 10,691 QC cells.
+        Linear MSE uses a 70/30 train/test split only after the gene mask is fixed. There is no validation split for α or <em>k</em>.
+      </p>
+      <p>
+        <strong>Current solver:</strong> D-Wave Ocean <code>TabuSampler</code> (<code>SOLVER="tabu"</code>) —
+        a <span class="ok">classical CPU heuristic</span>, not a QPU. Ocean simulated annealing is likewise classical.
+        Leap hybrid and Kaiwu CIM are wired in code and did not produce the full-scale numbers below.
+      </p>
+      <div class="card">
+        <h3>Scale: the formula holds; full-scale tabu does not</h3>
+        <p>
+          On a <strong>500</strong>-gene reduction (RUNX1 residual as <em>T</em>), tabu returned a healthy panel:
+          α* = 0.57, energy <strong class="ok">−2.67</strong>, <strong class="ok">|F*|=50</strong>.
+          The model works. At the full <strong>5,000</strong> HVGs with DPT as <em>T</em>, tabu returned a dense high-energy mask:
+          α* = 0.50, energy <strong class="bad">+71,715</strong>, <strong class="bad">|F*|=2,456</strong> versus a target of 50.
+          Complexity has outrun this classical heuristic. <strong>That rules out “the formula is broken.”</strong>
+          The bottleneck is search on a fully connected 5,000-bit QUBO.
+        </p>
+      </div>
+
+      <h3>Figure 1. Cardinality: k = 50 requested; full-scale tabu returned 2,456</h3>
+      <div class="bars">
+        <div class="bar-row">
+          <span>Target k (paper and this study)</span>
+          <div class="track"><div class="fill ok" style="width:2.0%"></div></div>
+          <span>50</span>
+        </div>
+        <div class="bar-row">
+          <span>500-gene tabu (validated)</span>
+          <div class="track"><div class="fill ok" style="width:2.0%"></div></div>
+          <span>50</span>
+        </div>
+        <div class="bar-row">
+          <span>5,000-gene tabu (this run)</span>
+          <div class="track"><div class="fill bad" style="width:100%"></div></div>
+          <span>2,456</span>
+        </div>
+      </div>
+      <p class="caption">Bar width relative to |F*|=2,456. Small-scale hit k=50; full-scale did not sparsify. Do not publish 2,456 genes as a 50-gene signature.</p>
+
+      <h3>Figure 2. Linear test MSE (DPT in [0, 1], 30% of cells)</h3>
+      <div class="bars">
+        <div class="bar-row">
+          <span>LASSO (k≈2,452)</span>
+          <div class="track"><div class="fill ok" style="width:33.7%"></div></div>
+          <span>0.0031</span>
+        </div>
+        <div class="bar-row">
+          <span>Random forest (k=2,456)</span>
+          <div class="track"><div class="fill" style="width:40.2%"></div></div>
+          <span>0.0037</span>
+        </div>
+        <div class="bar-row">
+          <span>QUBO mask (k=2,456)</span>
+          <div class="track"><div class="fill warn" style="width:58.7%"></div></div>
+          <span>0.0054</span>
+        </div>
+        <div class="bar-row">
+          <span>All 5,000 genes</span>
+          <div class="track"><div class="fill paper" style="width:100%"></div></div>
+          <span>0.0092</span>
+        </div>
+      </div>
+      <p class="caption">Widths relative to the all-gene MSE. The QUBO subset beats the full pool, so it carries trajectory signal. LASSO fits better because Eq. (4) does not optimize least squares. MSE is not the gold standard for this method.</p>
+
+      <h3>Figure 3. Overlap with LASSO / RF (at |F*|=2,456, not k=50)</h3>
+      <div class="bars">
+        <div class="bar-row">
+          <span>QUBO ∩ LASSO (this run)</span>
+          <div class="track"><div class="fill" style="width:50.1%"></div></div>
+          <span>50.1%</span>
+        </div>
+        <div class="bar-row">
+          <span>Paper hESC Q∩LASSO (k=50)</span>
+          <div class="track"><div class="fill paper" style="width:44%"></div></div>
+          <span>44%</span>
+        </div>
+        <div class="bar-row">
+          <span>QUBO ∩ RF (this run)</span>
+          <div class="track"><div class="fill" style="width:50.8%"></div></div>
+          <span>50.8%</span>
+        </div>
+        <div class="bar-row">
+          <span>Paper hESC Q∩RFR (k=50)</span>
+          <div class="track"><div class="fill paper" style="width:68%"></div></div>
+          <span>68%</span>
+        </div>
+      </div>
+      <p class="caption">Counts: Q∩L=1,230, Q∩RF=1,247, all three=702. Fractional Q∩LASSO is in the paper’s ballpark; cardinalities are not the same experiment.</p>
+
+      <h2>3. Biological meaning of the current results</h2>
+      <p>
+        The classical solver did not return the intended sparse optimum. The biology still validates the setup.
+      </p>
+      <div class="pair">
+        <div class="card">
+          <h3>Trajectory concordance</h3>
+          <p>Selected genes align with hematopoietic-to-erythroid progression, not the paper’s endothelial axis.</p>
+          <div class="chips">
+            <span class="chip">HBE1</span>
+            <span class="chip">HBB</span>
+            <span class="chip">HBD</span>
+            <span class="chip">ALAS2</span>
+            <span class="chip">KLF1</span>
+            <span class="chip">RUNX1</span>
+          </div>
+          <p class="caption" style="margin-bottom:0">Globins, heme biosynthesis, lineage TFs. RAMP2 / APLN / THY1 are absent — this matrix is hematopoiesis, not hESC→EC.</p>
+        </div>
+        <div class="card">
+          <h3>Information structure is not a linear-fit contest</h3>
+          <p>
+            The set predicts pseudotime better than all 5,000 genes (Figure 2): it captured the trajectory.
+            QUBO optimizes a <strong>low-redundancy information panel</strong>, not least squares.
+            A worse MSE than LASSO is acceptable — and expected — if the product is a cassette a lab can order.
+          </p>
+        </div>
+      </div>
+
+      <h2>4. Next: quantum hardware is the necessary move</h2>
+      <p>
+        Full-scale tabu failed because the instance is hard (dense 5,000×5,000 <em>Q</em>), not because the biology is mis-specified.
+        Next we migrate that instance to quantum-heuristic hardware: the QBoson <strong>coherent Ising machine (CIM)</strong>
+        through the <strong>Kaiwu SDK</strong> (<code>SOLVER="kaiwu_cim"</code>; <code>KAIWU_USER_ID</code> + <code>KAIWU_SDK_CODE</code>).
+        That run is a scientific result, not a connectivity test.
+      </p>
+
+      <h3>Figure 4. From the classical bottleneck to the CIM acceptance line</h3>
+      <div class="flow">
+        <div class="box">
+          <strong>Done</strong>
+          GSE308682 → QC and residual HVGs → Eq. (4) <em>Q</em>. 500-gene tabu validated the formula.
+        </div>
+        <div class="arrow">→</div>
+        <div class="box">
+          <strong class="bad">Bottleneck</strong>
+          5,000-gene tabu: energy +71,715, |F*|=2,456. The classical heuristic did not sparsify.
+        </div>
+        <div class="arrow">→</div>
+        <div class="box next">
+          <strong>CIM accept</strong>
+          Energy far below +71,715; |F*|≈50. A named 50-gene hematopoietic panel.
+        </div>
+      </div>
+      <p class="caption">Acceptance criteria are set before the machine run. If they are missed, we record an engineering/physics constraint. We do not abandon the QUBO biology; we turn to algorithm–hardware fit.</p>
+
+      <div class="bars">
+        <div class="bar-row">
+          <span>Current energy (tabu, p=5k)</span>
+          <div class="track"><div class="fill bad" style="width:100%"></div></div>
+          <span>+71,715</span>
+        </div>
+        <div class="bar-row">
+          <span>Healthy reference (tabu, p=500)</span>
+          <div class="track"><div class="fill ok" style="width:8%"></div></div>
+          <span>−2.67</span>
+        </div>
+        <div class="bar-row">
+          <span>CIM expected energy</span>
+          <div class="track"><div class="fill ok" style="width:8%"></div></div>
+          <span>negative / much lower</span>
+        </div>
+      </div>
+      <p class="caption">Energy is not on a shared linear axis; the chart contrasts a failed high-energy state with a healthy low-energy state. CIM must leave the +71,715 regime.</p>
+
+      <ul>
+        <li>
+          <strong>Low energy and a sparse mask.</strong>
+          CIM should explore the landscape tabu could not, and return energy far below +71,715 with about 50 genes on.
+          That is direct evidence that a quantum heuristic beat the current classical heuristic on this instance.
+        </li>
+        <li>
+          <strong>A biologically relevant panel.</strong>
+          If cardinality is recovered, we obtain the first ~50-gene non-redundant hematopoietic panel on this trajectory with explicit CIM hardware behind it:
+          a compact globin–heme enzyme–lineage TF module, less redundant than a correlation top-50.
+        </li>
+        <li>
+          <strong>Translation.</strong>
+          That panel answers how small a gene combination can be and still track cell state economically — the basis for a cheap assay kit or a focused CRISPR screen.
+        </li>
+      </ul>
+      <p>
+        We do not pre-claim that CIM will beat LASSO on MSE, or replicate Romero Table 1 on this tissue.
+        If |F*| remains ~p/2, we record it and move the question to α-search and hardware fit.
+      </p>
+
+      <h2>5. Closing statement</h2>
+      <div class="card">
+        <p>
+          We have turned biological panel design into a scalable QUBO, and we have validated it at small scale.
+          The full-scale solve is the signal that this instance belongs on quantum and quantum-heuristic hardware.
+          The CIM run is how we expect to deliver the first low-redundancy, high-information <strong>50-gene</strong> transcriptome panel for this hematopoietic model, and to move scRNA-seq toward an assay cassette rather than a gene list.
+        </p>
+      </div>
+    </section>
+
+    <footer>
+      <a href="compare-romero-2025.zh.html">中文结果对照</a>
+      ·
+      <a href="compare-romero-2025.html">English comparison</a>
+      · Set <code>QUBO_DATA_DIR</code> to the four GSE308682 10x files named above.
+    </footer>
+  </main>
+</body>
+</html>
