@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import LinearRegression, lasso_path
+from sklearn.linear_model import Ridge, lasso_path
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
@@ -66,7 +68,7 @@ def _lasso_top_k(X, y, K):
     std = X.std(axis=0)
     std[std == 0] = 1.0
     Xs = (X - X.mean(axis=0)) / std
-    alphas, coefs, _ = lasso_path(Xs, y, alphas=200)
+    alphas, coefs, _ = lasso_path(Xs, y, n_alphas=200)
     n_nz = np.sum(np.abs(coefs) > 1e-10, axis=0)
     path_i = int(np.argmin(np.abs(n_nz.astype(float) - K)))
     coef = coefs[:, path_i]
@@ -148,23 +150,53 @@ def compare_with_lasso_rfr(
 
 
 def evaluate_selected_features(X, y, selected_indices):
+    """Test MSE of a linear probe on the selected columns.
+
+    OLS on Pearson residuals is ill-conditioned (collinear HVGs, fat tails),
+    so sklearn's ``X @ coef_`` overflows. Z-score on the train split, then
+    Ridge(α=1).
+    """
     if len(selected_indices) == 0:
         return float("nan")
-    X_selected = X[:, selected_indices]
+    X_selected = np.asarray(X[:, selected_indices], dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64).ravel()
     X_train, X_test, y_train, y_test = train_test_split(
         X_selected, y, test_size=0.3, random_state=42
     )
-    model = LinearRegression()
-    model.fit(X_train, y_train)
-    return mean_squared_error(y_test, model.predict(X_test))
+    mu = X_train.mean(axis=0)
+    std = X_train.std(axis=0)
+    std[std < 1e-12] = 1.0
+    X_train = (X_train - mu) / std
+    X_test = (X_test - mu) / std
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
+        model = Ridge(alpha=1.0)
+        model.fit(X_train, y_train)
+        pred = np.asarray(model.predict(X_test), dtype=np.float64)
+    if not np.all(np.isfinite(pred)):
+        return float("nan")
+    return float(mean_squared_error(y_test, pred))
 
 
-def print_regression_mse(X, y, selected_idx_qubo, selected_idx_lasso, selected_idx_rf):
-    print("Regression MSE:")
+def print_regression_mse(
+    X,
+    y,
+    selected_idx_qubo,
+    selected_idx_lasso,
+    selected_idx_rf,
+    extra=None,
+):
+    print("Regression MSE (z-scored Ridge α=1):")
     print(
-        f"  QUBO (k={len(selected_idx_qubo)}): "
+        f"  QUBO Ocean tabu (k={len(selected_idx_qubo)}): "
         f"{evaluate_selected_features(X, y, selected_idx_qubo):.4f}"
     )
+    extra = extra or {}
+    for name, idx in extra.items():
+        idx = np.asarray(idx)
+        print(
+            f"  {name} (k={len(idx)}): "
+            f"{evaluate_selected_features(X, y, idx):.4f}"
+        )
     print(
         f"  LASSO (k={len(selected_idx_lasso)}): "
         f"{evaluate_selected_features(X, y, selected_idx_lasso):.4f}"
@@ -177,3 +209,53 @@ def print_regression_mse(X, y, selected_idx_qubo, selected_idx_lasso, selected_i
         f"  All features: "
         f"{evaluate_selected_features(X, y, list(range(X.shape[1]))):.4f}"
     )
+
+
+def compare_kaiwu_tabu_on_same_q(
+    Q,
+    ocean_vec,
+    ocean_energy,
+    k,
+    feature_names=None,
+    num_reads=8,
+    seed=0,
+):
+    """Solve the same Q with Kaiwu Tabu (local CPU). No CIM key required.
+
+    Returns selected indices, or None if Kaiwu is missing / the solve fails.
+    """
+    from qubo_model import HAS_KAIWU, diagnose_qubo_solution, solve_qubo
+
+    print("\n=== Ocean tabu vs Kaiwu tabu (same Q, no CIM key) ===")
+    if not HAS_KAIWU:
+        print(
+            "Skip: kaiwu SDK not installed. "
+            "pip install kaiwu==1.3.1  (official wheel is Python 3.10). "
+            "kaiwu_tabu is classical CPU and does not need KAIWU_USER_ID."
+        )
+        return None
+    print(
+        f"Kaiwu TabuSearchOptimizer on n={Q.shape[0]} "
+        f"(KAIWU_TABU_MAX_ITER={os.environ.get('KAIWU_TABU_MAX_ITER', '2000')})"
+    )
+    try:
+        vec, energy = solve_qubo(
+            Q, num_reads=num_reads, seed=seed, solver="kaiwu_tabu"
+        )
+    except Exception as exc:
+        print(f"Skip Kaiwu tabu: {type(exc).__name__}: {exc}")
+        return None
+    report = diagnose_qubo_solution(Q, vec, energy=energy, k=k)
+    idx = np.where(np.asarray(vec) == 1)[0]
+    oset = set(map(int, np.where(np.asarray(ocean_vec) == 1)[0]))
+    kset = set(map(int, idx))
+    print(
+        f"Ocean tabu:  |F*|={len(oset)}  energy={float(ocean_energy):.4f}"
+    )
+    print(f"Kaiwu tabu:  |F*|={len(kset)}  energy={float(energy):.4f}")
+    print(f"Overlap Ocean∩Kaiwu={len(oset & kset)}/{k}")
+    if feature_names is not None:
+        print("Kaiwu tabu genes:", [feature_names[i] for i in sorted(idx)])
+    if not report["accepted"]:
+        print("Kaiwu tabu did not pass energy/cardinality acceptance.")
+    return idx

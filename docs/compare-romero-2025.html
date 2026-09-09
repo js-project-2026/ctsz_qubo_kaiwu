@@ -30,12 +30,12 @@
     p, li { color: var(--ink); }
     .lede a { color: var(--accent); }
     .banner {
-      background: #f8e8e6;
-      border: 1px solid #e3c0bb;
+      background: #e8f3ec;
+      border: 1px solid #b7d4c4;
       padding: 14px 16px;
       margin: 0 0 24px;
     }
-    .banner strong { color: var(--bad); }
+    .banner strong { color: var(--ok); }
     .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0 0 28px; }
     .stat { background: var(--card); border: 1px solid var(--line); padding: 12px 14px; }
     .stat b { display: block; font-size: 1.25rem; }
@@ -75,26 +75,29 @@
   <main>
     <h1>GSE308682 QUBO vs Romero et al. 2025</h1>
     <p class="lede">
-      Notebook re-run with 5,000 Pearson-residual HVGs, scanpy diffusion pseudotime as
-      the target <em>T</em>, and local D-Wave TabuSampler.
+      Notebook re-run (Python 3.10.21) with 5,000 Pearson-residual HVGs, scanpy diffusion
+      pseudotime as the target <em>T</em>, Ocean <code>TabuSampler</code> (10,000&nbsp;ms/read,
+      first initial state all zeros), then Kaiwu local tabu on the same <em>Q</em>.
       Paper: Romero, Gupta, Gatlin, Chapkin, Cai,
       <em>Quantum Machine Intelligence</em> (2025) 7:114.
     </p>
     <p class="lede">English · <a href="compare-romero-2025.zh.html">中文</a></p>
 
     <div class="banner">
-      <strong>Cardinality control failed — this is not a k=50 paper figure.</strong>
-      The code asked for K=50. Tabu returned |F*|=2,456 at α*=0.50 with energy
-      +71,715 (a dense, high-energy mask). Romero et al. report real-data gene
-      lists at k=50. Overlaps and MSE below describe a ~half-pool selection,
-      not a 50-gene QUBO set.
+      <strong>Cardinality control passed — |F*|=50 at 5,000 genes.</strong>
+      α-bisection hit k=50 at probe 8: α*=0.394531, energy −1.7771
+      (matches F⊤QF). Acceptance: empty energy 0; one-bit improving moves
+      turn_off=0, turn_on=0. Same <em>Q</em>, Kaiwu TabuSearchOptimizer:
+      |F*|=52, energy −1.7737, Ocean∩Kaiwu=48/50 (PASS; nine one-bit
+      turn-off moves remain). A prior 20&nbsp;ms / random-init tabu run had
+      |F*|=2,456 and energy +71,715; that mask is superseded.
     </div>
 
     <div class="stats">
       <div class="stat"><b>10,691 × 5,000</b><span>Cells × residual HVGs</span></div>
-      <div class="stat"><b>2,456</b><span>|F*| after asking for 50</span></div>
-      <div class="stat"><b>50%</b><span>QUBO ∩ LASSO of 2,456</span></div>
-      <div class="stat"><b>0.0054</b><span>QUBO linear test MSE</span></div>
+      <div class="stat"><b>50</b><span>|F*| at α*=0.3945</span></div>
+      <div class="stat"><b>24/50</b><span>QUBO ∩ LASSO</span></div>
+      <div class="stat"><b>0.0063</b><span>Ocean QUBO Ridge MSE</span></div>
     </div>
 
     <h2>1. Protocol vs paper</h2>
@@ -136,14 +139,14 @@
         <tr>
           <td>k</td>
           <td>50</td>
-          <td>Asked 50; tabu returned 2,456</td>
-          <td class="bad">No</td>
+          <td>Asked 50; tabu returned 50</td>
+          <td class="ok">Yes</td>
         </tr>
         <tr>
           <td>Solver</td>
           <td>Leap hybrid + MATLAB tabu</td>
-          <td>dwave.samplers.TabuSampler, local</td>
-          <td class="warn">Tabu family, not Leap</td>
+          <td>Ocean TabuSampler (10&nbsp;s/read, zero init) plus Kaiwu tabu on the same <em>Q</em> (local CPU, no CIM key)</td>
+          <td class="warn">Tabu family, not Leap / CIM</td>
         </tr>
         <tr>
           <td>System</td>
@@ -154,23 +157,22 @@
         <tr>
           <td>Success metric</td>
           <td>Source recall (synthetic); overlap + unique genes + GO (real)</td>
-          <td>Overlap counts + linear MSE of DPT</td>
+          <td>Overlap counts + z-scored Ridge MSE of DPT</td>
           <td class="warn">Partial</td>
         </tr>
       </tbody>
     </table>
 
-    <h2>2. Overlap at the selected cardinality</h2>
+    <h2>2. Overlap at k=50</h2>
     <p>
-      This notebook compared LASSO and random forest at K=|F*|=2,456
-      (LASSO path n_nonzero=2,452). Paper hESC: QUBO∩LASSO = 22/50 (44%),
-      QUBO∩RFR = 34/50 (68%).
+      LASSO and random forest are compared at K=50 (LASSO path n_nonzero=49).
+      Paper hESC: QUBO∩LASSO = 22/50 (44%), QUBO∩RFR = 34/50 (68%).
     </p>
     <div class="bars">
       <div class="bar-row">
         <span>QUBO ∩ LASSO (this)</span>
-        <div class="track"><div class="fill" style="width:50.1%"></div></div>
-        <span>50.1%</span>
+        <div class="track"><div class="fill" style="width:48%"></div></div>
+        <span>48%</span>
       </div>
       <div class="bar-row">
         <span>QUBO ∩ LASSO (paper k=50)</span>
@@ -179,8 +181,8 @@
       </div>
       <div class="bar-row">
         <span>QUBO ∩ RF (this)</span>
-        <div class="track"><div class="fill" style="width:50.8%"></div></div>
-        <span>50.8%</span>
+        <div class="track"><div class="fill" style="width:22%"></div></div>
+        <span>22%</span>
       </div>
       <div class="bar-row">
         <span>QUBO ∩ RFR (paper k=50)</span>
@@ -189,57 +191,68 @@
       </div>
       <div class="bar-row">
         <span>LASSO ∩ RF (this)</span>
-        <div class="track"><div class="fill" style="width:54.8%"></div></div>
-        <span>54.8%</span>
+        <div class="track"><div class="fill" style="width:18%"></div></div>
+        <span>18%</span>
       </div>
       <div class="bar-row">
         <span>All three (this)</span>
-        <div class="track"><div class="fill" style="width:28.6%"></div></div>
-        <span>28.6%</span>
+        <div class="track"><div class="fill" style="width:12%"></div></div>
+        <span>12%</span>
       </div>
     </div>
     <p>
-      Raw counts: Q∩L = 1,230; Q∩RF = 1,247; L∩RF = 1,346; all three = 702.
-      QUBO-only 680, LASSO-only 578, RF-only 565. Fractional Q∩LASSO is in the
-      same ballpark as the paper; Q∩RF is lower than their 68% — but the
-      cardinalities are not the same experiment.
+      Raw counts: Q∩L = 24/50; Q∩RF = 11/50; L∩RF = 9/50; all three = 6.
+      Fractional Q∩LASSO (48%) is close to the paper’s 44% at the same k.
+      Q∩RF (22%) is well below their 68% — expected on a hematopoietic DPT
+      axis versus hESC→endothelium.
     </p>
 
     <h2>3. Linear test MSE (DPT scaled to [0, 1])</h2>
+    <p>
+      After the mask is fixed, columns are z-scored on the 70% train split and
+      scored with Ridge (α=1). Unregularized OLS overflows on collinear Pearson
+      residuals. LASSO path α=0.0117, 49 nonzeros (target K=50).
+    </p>
     <div class="bars">
       <div class="bar-row">
-        <span>QUBO k=2456</span>
-        <div class="track"><div class="fill" style="width:58.7%"></div></div>
-        <span>0.0054</span>
+        <span>LASSO k=49</span>
+        <div class="track"><div class="fill" style="width:52.7%"></div></div>
+        <span>0.0048</span>
       </div>
       <div class="bar-row">
-        <span>LASSO k=2452</span>
-        <div class="track"><div class="fill" style="width:33.7%"></div></div>
-        <span>0.0031</span>
+        <span>Kaiwu tabu k=52</span>
+        <div class="track"><div class="fill" style="width:67.0%"></div></div>
+        <span>0.0061</span>
       </div>
       <div class="bar-row">
-        <span>RF k=2456</span>
-        <div class="track"><div class="fill" style="width:40.2%"></div></div>
-        <span>0.0037</span>
+        <span>Ocean tabu k=50</span>
+        <div class="track"><div class="fill" style="width:69.2%"></div></div>
+        <span>0.0063</span>
+      </div>
+      <div class="bar-row">
+        <span>RF k=50</span>
+        <div class="track"><div class="fill" style="width:70.3%"></div></div>
+        <span>0.0064</span>
       </div>
       <div class="bar-row">
         <span>All 5,000 genes</span>
         <div class="track"><div class="fill" style="width:100%"></div></div>
-        <span>0.0092</span>
+        <span>0.0091</span>
       </div>
     </div>
     <p>
-      Bar width is relative to the all-features MSE. LASSO is best, then RF,
-      then QUBO. All subsets beat the full 5,000-gene linear model, so using
-      fewer correlated genes helps, but this QUBO mask is not the best
-      2,456-gene predictor. Romero et al. did not headline real data with
-      linear MSE.
+      Bar width is relative to the all-features MSE. LASSO is best; Ocean and
+      Kaiwu tabu sit with RF. All ~50-gene subsets beat the full 5,000-gene
+      probe. Feature selection used all QC cells; the 70/30 split is only for
+      this probe, so it is not independent generalization. Romero et al.
+      did not headline real data with linear MSE.
     </p>
     <p>
-      Solver health check: the previous 500-gene RUNX1 run had α*=0.57,
-      energy −2.67, |F*|=50. This 5,000-gene tabu run has energy +71,715 and
-      |F*|≈p/2, so tabu did not find a sparse Eq. (4) minimizer. α* stuck at
-      0.50 (the search default).
+      Solver health check: 500-gene RUNX1 residual run α*=0.57, energy −2.67,
+      |F*|=50. This 5,000-gene DPT Ocean tabu: α*=0.3945, energy −1.7771, |F*|=50
+      (PASS). Kaiwu tabu on the same <em>Q</em>: |F*|=52, E=−1.7737, overlap 48/50.
+      TabuSampler timeout is <code>QUBO_TABU_TIMEOUT_MS</code>
+      (this run 10,000&nbsp;ms/read). Kernel: Python 3.10.21.
     </p>
 
     <h2>4. Marker genes</h2>
@@ -247,16 +260,18 @@
       <div class="card">
         <h3>In this QUBO mask</h3>
         <p>
-          Erythroid / heme: HBE1, HBD, HBB, HBA2, GYPB, GYPA, ALAS2, SLC4A1,
-          CA1, KLF1. Also ID3 (on the paper’s unique hESC list, but here also
-          in LASSO and RF), RUNX1, EPHB2, EPAS1, FN1.
+          Erythroid / heme / mito: HBE1, HBZ, HBG2, HBA2, ALAS2, SLC25A37,
+          BLVRB, MT-CO1, MT-ND1, MT-ND2, HIST1H1C, HIST1H4C. Also ribosomal
+          and translation genes (RPL13A, EEF2, EIF5A, …).
+          Kaiwu tabu (52 genes) shares 48 with Ocean; Ocean-only MT-ND1, PRKAR2B;
+          Kaiwu-only MT-CYB, HSP90AA1, GSTP1, TPT1.
         </p>
       </div>
       <div class="card">
         <h3>Paper endothelial unique set</h3>
         <p>
-          RAMP2, APLN, THY1, ACTR2 are not in QUBO. VIM, GDF15, TUBA1C, GATA1,
-          HBZ appear in LASSO (and usually RF) but not QUBO. DPT was rooted at
+          RAMP2, APLN, THY1 are not in QUBO, LASSO, or RF. VIM and ID3 appear
+          in RF, not this QUBO list. HBZ is in all three. DPT was rooted at
           low HBE1, so the axis is hematopoietic/erythroid, not hESC→EC.
         </p>
       </div>
@@ -266,12 +281,12 @@
         <tr><th>Gene</th><th>Why it matters</th><th>QUBO</th><th>LASSO</th><th>RF</th></tr>
       </thead>
       <tbody>
-        <tr><td>HBE1</td><td>DPT iroot / embryonic globin</td><td>yes</td><td>yes</td><td>yes</td></tr>
-        <tr><td>ID3</td><td>Paper QUBO-unique (hESC)</td><td>yes</td><td>yes</td><td>yes</td></tr>
-        <tr><td>KLF1, ALAS2, CA1</td><td>Erythroid</td><td>yes</td><td>mixed</td><td>yes</td></tr>
-        <tr><td>VIM, GDF15, GATA1</td><td>Paper overlap lists</td><td>no</td><td>yes</td><td>mixed</td></tr>
+        <tr><td>HBE1</td><td>DPT iroot / embryonic globin</td><td>yes</td><td>no</td><td>yes</td></tr>
+        <tr><td>HBZ</td><td>Embryonic globin</td><td>yes</td><td>yes</td><td>yes</td></tr>
+        <tr><td>HBG2, ALAS2</td><td>Fetal globin / heme</td><td>yes</td><td>no</td><td>yes</td></tr>
+        <tr><td>ID3, VIM</td><td>Paper lists; RF here</td><td>no</td><td>no</td><td>yes</td></tr>
         <tr><td>RAMP2, APLN, THY1</td><td>Paper EC unique</td><td>no</td><td>no</td><td>no</td></tr>
-        <tr><td>EPHB2</td><td>Paper VEGF/EPH theme</td><td>yes</td><td>no</td><td>no</td></tr>
+        <tr><td>KLF1, EPHB2</td><td>Erythroid TF / EPH theme</td><td>no</td><td>no</td><td>no</td></tr>
       </tbody>
     </table>
 
@@ -279,25 +294,27 @@
     <ul>
       <li>
         <strong>Can:</strong> The pipeline is in the paper’s protocol family
-        (residuals, ~5k genes, trajectory T, unconstrained QUBO + tabu).
-        Fractional Q∩LASSO (~50%) is not wildly unlike their 44% at k=50.
+        (residuals, ~5k genes, trajectory T, unconstrained QUBO + tabu) and
+        now returns a k=50 mask with negative energy. Q∩LASSO 24/50 (48%)
+        matches their 44% at the same cardinality.
       </li>
       <li>
         <strong>Cannot:</strong> Replicate Table 1 (planted synthetic sources)
-        or claim the hESC/PC9 unique-gene / GO results. Positive energy and
-        |F*|≈p/2 mean the reported gene list is not a k=50 QUBO solution.
+        or claim the hESC/PC9 unique-gene / GO results. Ridge MSE is leaky
+        (selection on all QC cells).
       </li>
       <li>
-        <strong>Next:</strong> Get |F*|=50 on p=5,000 (stronger α search,
-        more tabu reads, or Leap hybrid), then overlap/enrichment. Until then
-        the only healthy k=50 real-data mask in this project is the earlier
-        500-HVG RUNX1 residual run, which is a different T and pool.
+        <strong>Next:</strong> Optional Leap hybrid / Kaiwu CIM on the same
+        <em>Q</em> (classical Kaiwu tabu is already done: overlap 48/50).
+        Enrichment and a true hold-out for selection remain open.
       </li>
     </ul>
 
     <footer>
-      Generated from <code>qubo.ipynb</code> outputs after the 5,000-gene DPT + tabu
-      re-run. Data: GEO GSE308682 (not stored in this repository). Set
+      Generated from <code>qubo.ipynb</code> (Python 3.10.21) after the 5,000-gene DPT
+      Ocean tabu run (10&nbsp;s/read, zero init, |F*|=50, E=−1.7771) and Kaiwu tabu
+      on the same <em>Q</em> (|F*|=52, E=−1.7737, overlap 48/50). Data: GEO GSE308682
+      (not stored in this repository). Set
       <code>QUBO_DATA_DIR</code> to the folder containing
       <code>GSE308682_filtered_matrix.mtx.gz</code>,
       <code>GSE308682_filtered_features.tsv.gz</code>,

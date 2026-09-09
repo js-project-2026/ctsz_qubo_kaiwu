@@ -20,6 +20,7 @@ htmlcov/
 .coverage
 dist/
 build/
+.venv-py310/
 
 # Local 10x dumps / large matrices
 sample_data/
@@ -27,3 +28,7 @@ data/
 *.h5ad
 *.mtx
 *.mtx.gz
+
+# biz doc
+docs/quantum-ultra-early-markers-v2.html
+docs/quantum-ultra-early-markers.html

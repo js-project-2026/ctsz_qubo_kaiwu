@@ -31,7 +31,9 @@ Local solvers: D-Wave Ocean `TabuSampler` / `SimulatedAnnealingSampler` (**class
 | `paths.py` | Resolves `QUBO_REPO_DIR` / `QUBO_DATA_DIR` |
 | `docs/compare-romero-2025.html` | Latest notebook vs paper (English) |
 | `docs/compare-romero-2025.zh.html` | Same report in Chinese, including GSE308682 train/test split |
-| `docs/briefing-qubo-effort.html` | Bilingual progress report (2026-09-07): panel goal, tabu results with charts, Kaiwu CIM next |
+| `docs/briefing-qubo-effort.html` | Bilingual progress report: k=50 at 5,000 genes, charts, optional CIM compare |
+| `docs/quantum-ultra-early-markers.html` | Strategy essay (bilingual); §09 is this repo’s gene-panel instance |
+| `docs/quantum-ultra-early-markers-v2.html` | Investor recast of the same science |
 
 ## Data
 
@@ -56,13 +58,21 @@ You can also pass `data_dir=` to `load_experiment(...)`. There is no machine-spe
 
 ## Setup
 
-Python 3.10+ (developed on 3.14).
+This repo **exits** unless the interpreter is **Python 3.10.x** (Kaiwu’s official wheel is 3.10-only).
+
+**Kaiwu** (`kaiwu_tabu`, `kaiwu_sa`, `kaiwu_cim`): use `.venv-py310` and that kernel:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+# macOS Homebrew example
+brew install python@3.10
+python3.10 -m venv .venv-py310
+source .venv-py310/bin/activate
 pip install -r requirements.txt
+pip install kaiwu==1.3.1 ipykernel
+python -m ipykernel install --user --name qubo-py310 --display-name "Python 3.10 (Kaiwu)"
 ```
+
+Then in the notebook: kernel picker → **Python 3.10 (Kaiwu)** → run the pip cell. A non-3.10 kernel raises `SystemExit`.
 
 ## Run
 
@@ -81,11 +91,13 @@ SOLVER = "tabu"  # see solver table below
 | `sa` | `dwave-ocean-sdk` | classical CPU | — |
 | `leap` | `dwave-ocean-sdk` | D-Wave Leap hybrid | `DWAVE_API_TOKEN` |
 | `custom_sa` | this repo | classical CPU | — |
-| `kaiwu_sa` | [kaiwu SDK](https://kaiwu-sdk-docs.qboson.com/) | classical CPU | optional license |
-| `kaiwu_tabu` | kaiwu SDK | classical CPU | optional license |
+| `kaiwu_sa` | [kaiwu SDK](https://kaiwu-sdk-docs.qboson.com/) | classical CPU | none for CIM; optional local license |
+| `kaiwu_tabu` | kaiwu SDK | classical CPU | none for CIM; optional local license |
 | `kaiwu_cim` | kaiwu CIM + [kaiwu-pytorch-plugin](https://github.com/qboson/kaiwu-pytorch-plugin) | QBoson photonic CIM | `KAIWU_USER_ID`, `KAIWU_SDK_CODE` |
 
-The last notebook run used **`tabu`**: Ocean is installed, but that sampler is not a QPU. To use D-Wave’s cloud hybrid solver, set `SOLVER = "leap"`. To use QBoson’s coherent Ising machine, install Kaiwu and set `SOLVER = "kaiwu_cim"`.
+`kaiwu_tabu` / `kaiwu_sa` run on the local CPU. They do **not** need a CIM platform key. Set `COMPARE_KAIWU_TABU = True` in `qubo_v1.py` / `qubo.ipynb` to solve the **same** $Q$ with Ocean tabu and Kaiwu tabu. Official Kaiwu wheels target **Python 3.10**.
+
+The last notebook run used **`tabu`**: Ocean is installed, but that sampler is not a QPU. To use D-Wave’s cloud hybrid solver, set `SOLVER = "leap"`. To use QBoson’s coherent Ising machine, install Kaiwu and set `SOLVER = "kaiwu_cim"` (that path **does** need keys).
 
 ```bash
 pip install kaiwu==1.3.1 torch
@@ -119,7 +131,7 @@ Open [`docs/compare-romero-2025.html`](docs/compare-romero-2025.html) or the Chi
 **This is not a drop-in replication** of Table 1 or the hESC/PC9 figures:
 
 - Different tissue and $T$ (CRISPR hematopoiesis DPT vs endothelial / TKI trajectories).
-- The 5,000-gene + tabu notebook run returned **|F\*|=2,456** instead of **k=50** (energy large and positive). Treat that gene list as an incomplete solve, not a paper-style top-50 set.
+- The corrected 5,000-gene tabu run returned **|F\*|=50** at α\*=0.3945, energy **−1.7771** (10 s/read, zero init). A prior 20 ms / random-init run with |F\*|=2,456 is discarded. Linear test MSE (leaky 70/30 after selection): QUBO 0.0063, LASSO 0.0048, RF 0.0064, all genes 0.0092. Overlaps at k=50: Q∩L 24/50, Q∩RF 11/50.
 
 Synthetic §2.3 in `qubo_model.generate_synthetic_data` is the setting for Table 1–style source recall (`USE_REAL_DATA = False`).
 

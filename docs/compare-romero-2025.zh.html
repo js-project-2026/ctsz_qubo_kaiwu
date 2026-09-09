@@ -32,12 +32,12 @@
     .lang { font-size: 0.9rem; margin: 0 0 24px; }
     .lang a { color: var(--accent); }
     .banner {
-      background: #f8e8e6;
-      border: 1px solid #e3c0bb;
+      background: #e8f3ec;
+      border: 1px solid #b7d4c4;
       padding: 14px 16px;
       margin: 0 0 24px;
     }
-    .banner strong { color: var(--bad); }
+    .banner strong { color: var(--ok); }
     .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0 0 28px; }
     .stat { background: var(--card); border: 1px solid var(--line); padding: 12px 14px; }
     .stat b { display: block; font-size: 1.25rem; }
@@ -78,25 +78,27 @@
   <main>
     <h1>GSE308682 QUBO 与 Romero 等 2025 对照</h1>
     <p class="lede">
-      笔记本重跑：5,000 个 Pearson 残差高变基因（HVG）、以 scanpy 扩散伪时间作为连续目标
-      <em>T</em>、本地 D-Wave <code>TabuSampler</code>。
+      笔记本重跑（Python 3.10.21）：5,000 个 Pearson 残差高变基因（HVG）、以 scanpy 扩散伪时间作为连续目标
+      <em>T</em>、Ocean <code>TabuSampler</code>（每 read 10,000&nbsp;ms，首个初态全零），再在同一 <em>Q</em> 上跑 Kaiwu 本地 tabu。
       论文：Romero, Gupta, Gatlin, Chapkin, Cai，
       <em>Quantum Machine Intelligence</em> (2025) 7:114。
     </p>
     <p class="lang"><a href="compare-romero-2025.html">English</a> · 中文</p>
 
     <div class="banner">
-      <strong>基数控制失败——这不是论文中的 k=50 图。</strong>
-      代码要求 K=50。Tabu 在 α*=0.50 时返回 |F*|=2,456，能量为 +71,715（稠密、高能量掩码）。
-      Romero 等报告的真实数据基因列表为 k=50。下文的重叠与 MSE 描述的是约一半基因池的选择，
-      不是 50 基因 QUBO 集合。
+      <strong>基数控制通过——5,000 基因上 |F*|=50。</strong>
+      α 二分在第 8 次探测命中 k=50：α*=0.394531，能量 −1.7771（与 F⊤QF 一致）。
+      验收：空解能量 0；一位改进 turn_off=0、turn_on=0。同一 <em>Q</em> 上 Kaiwu TabuSearchOptimizer：
+      |F*|=52，能量 −1.7737，Ocean∩Kaiwu=48/50（PASS；仍有 9 个一位 turn-off）。
+      此前 20&nbsp;ms / 随机初态的 tabu 得到
+      |F*|=2,456、能量 +71,715，该掩码已作废。
     </div>
 
     <div class="stats">
       <div class="stat"><b>10,691 × 5,000</b><span>细胞 × 残差 HVG</span></div>
-      <div class="stat"><b>2,456</b><span>要求 50 后的 |F*|</span></div>
-      <div class="stat"><b>50%</b><span>QUBO ∩ LASSO（相对 2,456）</span></div>
-      <div class="stat"><b>0.0054</b><span>QUBO 线性测试 MSE</span></div>
+      <div class="stat"><b>50</b><span>|F*|（α*=0.3945）</span></div>
+      <div class="stat"><b>24/50</b><span>QUBO ∩ LASSO</span></div>
+      <div class="stat"><b>0.0063</b><span>Ocean QUBO Ridge MSE</span></div>
     </div>
 
     <h2>1. 数据与划分</h2>
@@ -105,7 +107,7 @@
       <code>qubo_model.generate_synthetic_data</code> 按 Romero 等 §2.3 生成相关高斯特征与非线性响应：
       默认 <strong>n = 10,000 样本、p = 50 特征</strong>，<code>seed=42</code>。
       互信息、QUBO、LASSO、随机森林均在<strong>全部 10,000 行</strong>上计算，没有训练 / 验证 / 测试划分。
-      仅当随后调用线性回归 MSE 时，才对<strong>已选出的列</strong>做 70% / 30% 划分（见下）。
+      仅当随后调用线性探针 MSE 时，才对<strong>已选出的列</strong>做 70% / 30% 划分（见下）。
       该设置对应论文 Table 1 一类的“种植源特征召回”，不是本次 GSE308682 重跑。
     </p>
 
@@ -159,7 +161,7 @@
             特征掩码固定之后，<code>evaluate_selected_features</code> 用
             <code>sklearn.model_selection.train_test_split</code>
             （<code>test_size=0.3</code>，<code>random_state=42</code>，打乱）
-            把细胞划成训练集与测试集；<code>LinearRegression</code> 只在训练集拟合，MSE 在测试集上报告。
+            把细胞划成训练集与测试集；列在训练集上 z-score，再拟合 <code>Ridge(α=1)</code>（Pearson 残差上 OLS 会溢出），MSE 在测试集上报告。
             各方法（QUBO / LASSO / RF / 全部 5,000 基因）各自独立切一次，种子相同。
           </td>
           <td>
@@ -214,14 +216,14 @@
         <tr>
           <td>k</td>
           <td>50</td>
-          <td>要求 50；tabu 返回 2,456</td>
-          <td class="bad">否</td>
+          <td>要求 50；tabu 返回 50</td>
+          <td class="ok">是</td>
         </tr>
         <tr>
           <td>求解器</td>
           <td>Leap hybrid + MATLAB tabu</td>
-          <td>本地 dwave.samplers.TabuSampler</td>
-          <td class="warn">同属 tabu 族，非 Leap</td>
+          <td>本地 Ocean TabuSampler（10&nbsp;s/read，零初态）+ 同一 <em>Q</em> 上的 Kaiwu 本地 tabu（无需 CIM 密钥）</td>
+          <td class="warn">同属 tabu 族，非 Leap / CIM</td>
         </tr>
         <tr>
           <td>体系</td>
@@ -232,23 +234,22 @@
         <tr>
           <td>成功指标</td>
           <td>源召回（合成）；重叠 + 独特基因 + GO（真实）</td>
-          <td>重叠计数 + DPT 的线性 MSE</td>
+          <td>重叠计数 + DPT 的 z-score Ridge MSE</td>
           <td class="warn">部分</td>
         </tr>
       </tbody>
     </table>
 
-    <h2>3. 所选基数下的重叠</h2>
+    <h2>3. k=50 下的重叠</h2>
     <p>
-      本笔记本在 K=|F*|=2,456 处比较 LASSO 与随机森林
-      （LASSO 路径 n_nonzero=2,452）。论文 hESC：QUBO∩LASSO = 22/50（44%），
-      QUBO∩RFR = 34/50（68%）。
+      本笔记本在 K=50 处比较 LASSO 与随机森林（LASSO 路径 n_nonzero=49）。
+      论文 hESC：QUBO∩LASSO = 22/50（44%），QUBO∩RFR = 34/50（68%）。
     </p>
     <div class="bars">
       <div class="bar-row">
         <span>QUBO ∩ LASSO（本次）</span>
-        <div class="track"><div class="fill" style="width:50.1%"></div></div>
-        <span>50.1%</span>
+        <div class="track"><div class="fill" style="width:48%"></div></div>
+        <span>48%</span>
       </div>
       <div class="bar-row">
         <span>QUBO ∩ LASSO（论文 k=50）</span>
@@ -257,8 +258,8 @@
       </div>
       <div class="bar-row">
         <span>QUBO ∩ RF（本次）</span>
-        <div class="track"><div class="fill" style="width:50.8%"></div></div>
-        <span>50.8%</span>
+        <div class="track"><div class="fill" style="width:22%"></div></div>
+        <span>22%</span>
       </div>
       <div class="bar-row">
         <span>QUBO ∩ RFR（论文 k=50）</span>
@@ -267,56 +268,63 @@
       </div>
       <div class="bar-row">
         <span>LASSO ∩ RF（本次）</span>
-        <div class="track"><div class="fill" style="width:54.8%"></div></div>
-        <span>54.8%</span>
+        <div class="track"><div class="fill" style="width:18%"></div></div>
+        <span>18%</span>
       </div>
       <div class="bar-row">
         <span>三者交集（本次）</span>
-        <div class="track"><div class="fill" style="width:28.6%"></div></div>
-        <span>28.6%</span>
+        <div class="track"><div class="fill" style="width:12%"></div></div>
+        <span>12%</span>
       </div>
     </div>
     <p>
-      原始计数：Q∩L = 1,230；Q∩RF = 1,247；L∩RF = 1,346；三者 = 702。
-      仅 QUBO 680，仅 LASSO 578，仅 RF 565。QUBO∩LASSO 的比例与论文大致同量级；
-      QUBO∩RF 低于其 68%——但基数不同，不是同一实验。
+      原始计数：Q∩L = 24/50；Q∩RF = 11/50；L∩RF = 9/50；三者 = 6。
+      QUBO∩LASSO 比例（48%）与论文同 k 的 44% 接近；QUBO∩RF（22%）低于其 68%——
+      造血 DPT 轴线与 hESC→内皮不同，属预期。
     </p>
 
     <h2>4. 线性测试 MSE（DPT 缩放到 [0, 1]）</h2>
     <p>
       下图对应第 1.2 节的 70% / 30% 细胞划分，不是特征选择的 hold-out。
+      掩码固定后，训练集 z-score + Ridge(α=1)。LASSO 路径 α=0.0117，非零 49（目标 K=50）。
     </p>
     <div class="bars">
       <div class="bar-row">
-        <span>QUBO k=2456</span>
-        <div class="track"><div class="fill" style="width:58.7%"></div></div>
-        <span>0.0054</span>
+        <span>LASSO k=49</span>
+        <div class="track"><div class="fill" style="width:52.7%"></div></div>
+        <span>0.0048</span>
       </div>
       <div class="bar-row">
-        <span>LASSO k=2452</span>
-        <div class="track"><div class="fill" style="width:33.7%"></div></div>
-        <span>0.0031</span>
+        <span>Kaiwu tabu k=52</span>
+        <div class="track"><div class="fill" style="width:67.0%"></div></div>
+        <span>0.0061</span>
       </div>
       <div class="bar-row">
-        <span>RF k=2456</span>
-        <div class="track"><div class="fill" style="width:40.2%"></div></div>
-        <span>0.0037</span>
+        <span>Ocean tabu k=50</span>
+        <div class="track"><div class="fill" style="width:69.2%"></div></div>
+        <span>0.0063</span>
+      </div>
+      <div class="bar-row">
+        <span>RF k=50</span>
+        <div class="track"><div class="fill" style="width:70.3%"></div></div>
+        <span>0.0064</span>
       </div>
       <div class="bar-row">
         <span>全部 5,000 基因</span>
         <div class="track"><div class="fill" style="width:100%"></div></div>
-        <span>0.0092</span>
+        <span>0.0091</span>
       </div>
     </div>
     <p>
-      条形宽度相对“全部特征”MSE。LASSO 最好，其次 RF，再次 QUBO。
-      各子集都优于完整 5,000 基因线性模型，说明去掉部分相关基因有帮助，
-      但该 QUBO 掩码不是最好的 2,456 基因预测器。Romero 等并未用线性 MSE 作为真实数据的标题结果。
+      条形宽度相对“全部特征”MSE。LASSO 最好；Ocean / Kaiwu tabu 与 RF 接近。
+      各约 50 基因子集都优于完整 5,000 基因探针。特征选择见过全部质控细胞；
+      70%/30% 仅用于该 MSE，不是独立泛化。Romero 等并未用线性 MSE 作为真实数据的标题结果。
     </p>
     <p>
-      求解器健康检查：此前 500 基因、RUNX1 残差运行 α*=0.57，能量 −2.67，|F*|=50。
-      本次 5,000 基因 tabu 能量 +71,715 且 |F*|≈p/2，说明 tabu 未找到稀疏的式 (4) 极小点。
-      α* 停在 0.50（搜索默认值）。
+      求解器健康检查：500 基因、RUNX1 残差运行 α*=0.57，能量 −2.67，|F*|=50。
+      本次 5,000 基因 DPT Ocean tabu：α*=0.3945，能量 −1.7771，|F*|=50（PASS）。
+      同一 <em>Q</em> 上 Kaiwu tabu：|F*|=52，E=−1.7737，重叠 48/50。
+      超时由 <code>QUBO_TABU_TIMEOUT_MS</code> 控制（本次每 read 10,000&nbsp;ms）。内核：Python 3.10.21。
     </p>
 
     <h2>5. 标志基因</h2>
@@ -324,17 +332,18 @@
       <div class="card">
         <h3>出现在本次 QUBO 掩码中</h3>
         <p>
-          红系 / 血红素：HBE1, HBD, HBB, HBA2, GYPB, GYPA, ALAS2, SLC4A1,
-          CA1, KLF1。另有 ID3（论文 hESC 独特列表上的基因，但此处 LASSO 与 RF 也选中）、
-          RUNX1, EPHB2, EPAS1, FN1。
+          红系 / 血红素 / 线粒体：HBE1, HBZ, HBG2, HBA2, ALAS2, SLC25A37,
+          BLVRB, MT-CO1, MT-ND1, MT-ND2, HIST1H1C, HIST1H4C。另有核糖体与翻译相关基因
+          （RPL13A, EEF2, EIF5A 等）。
+          Kaiwu tabu（52 基因）与 Ocean 共享 48 个；Ocean 独有 MT-ND1、PRKAR2B；
+          Kaiwu 独有 MT-CYB、HSP90AA1、GSTP1、TPT1。
         </p>
       </div>
       <div class="card">
         <h3>论文内皮独特集合</h3>
         <p>
-          RAMP2, APLN, THY1, ACTR2 不在 QUBO 中。VIM, GDF15, TUBA1C, GATA1,
-          HBZ 出现在 LASSO（通常也在 RF）中，但不在 QUBO。DPT 根于低 HBE1，
-          轴线是造血/红系，不是 hESC→内皮。
+          RAMP2, APLN, THY1 不在 QUBO、LASSO 或 RF 中。VIM 与 ID3 出现在 RF，不在本次 QUBO 列表。
+          HBZ 三者皆有。DPT 根于低 HBE1，轴线是造血/红系，不是 hESC→内皮。
         </p>
       </div>
     </div>
@@ -343,33 +352,36 @@
         <tr><th>基因</th><th>为何相关</th><th>QUBO</th><th>LASSO</th><th>RF</th></tr>
       </thead>
       <tbody>
-        <tr><td>HBE1</td><td>DPT iroot / 胚胎珠蛋白</td><td>是</td><td>是</td><td>是</td></tr>
-        <tr><td>ID3</td><td>论文 QUBO 独特（hESC）</td><td>是</td><td>是</td><td>是</td></tr>
-        <tr><td>KLF1, ALAS2, CA1</td><td>红系</td><td>是</td><td>部分</td><td>是</td></tr>
-        <tr><td>VIM, GDF15, GATA1</td><td>论文重叠列表</td><td>否</td><td>是</td><td>部分</td></tr>
+        <tr><td>HBE1</td><td>DPT iroot / 胚胎珠蛋白</td><td>是</td><td>否</td><td>是</td></tr>
+        <tr><td>HBZ</td><td>胚胎珠蛋白</td><td>是</td><td>是</td><td>是</td></tr>
+        <tr><td>HBG2, ALAS2</td><td>胎儿珠蛋白 / 血红素</td><td>是</td><td>否</td><td>是</td></tr>
+        <tr><td>ID3, VIM</td><td>论文列表；此处 RF</td><td>否</td><td>否</td><td>是</td></tr>
         <tr><td>RAMP2, APLN, THY1</td><td>论文内皮独特</td><td>否</td><td>否</td><td>否</td></tr>
-        <tr><td>EPHB2</td><td>论文 VEGF/EPH 主题</td><td>是</td><td>否</td><td>否</td></tr>
+        <tr><td>KLF1, EPHB2</td><td>红系 TF / EPH 主题</td><td>否</td><td>否</td><td>否</td></tr>
       </tbody>
     </table>
 
     <h2>6. 本次运行能说明与不能说明的</h2>
     <ul>
       <li>
-        <strong>能：</strong>流程属于论文方案族（残差、约 5k 基因、轨迹 T、无约束 QUBO + tabu）。
-        Q∩LASSO 比例（约 50%）与其 k=50 时的 44% 并非完全不同量级。
+        <strong>能：</strong>流程属于论文方案族（残差、约 5k 基因、轨迹 T、无约束 QUBO + tabu），
+        现已给出负能量的 k=50 掩码。Q∩LASSO = 24/50（48%），与论文同基数的 44% 接近。
       </li>
       <li>
         <strong>不能：</strong>复现 Table 1（种植合成源）或宣称 hESC/PC9 独特基因 / GO 结果。
-        正能量且 |F*|≈p/2 意味着报告的基因列表不是 k=50 的 QUBO 解。
+        线性 MSE 有泄漏（特征选择见过全部质控细胞）。
       </li>
       <li>
-        <strong>下一步：</strong>在 p=5,000 上得到 |F*|=50（更强的 α 搜索、更多 tabu reads，或 Leap hybrid），再做重叠/富集。
-        在此之前，本项目中唯一健康的 k=50 真实数据掩码是更早的 500-HVG RUNX1 残差运行，那是不同的 T 与基因池。
+        <strong>下一步：</strong>可选 Leap hybrid / Kaiwu CIM 在同一 <em>Q</em> 上做硬件对照
+        （经典 Kaiwu tabu 已完成：重叠 48/50）。
+        富集分析与真正的选择 hold-out 仍待做。
       </li>
     </ul>
 
     <footer>
-      根据 <code>qubo.ipynb</code> 在 5,000 基因 DPT + tabu 重跑后的输出整理。
+      根据 <code>qubo.ipynb</code>（Python 3.10.21）5,000 基因 DPT + Ocean tabu
+      （10&nbsp;s/read，零初态，|F*|=50，E=−1.7771）及同一 <em>Q</em> 上的 Kaiwu tabu
+      （|F*|=52，E=−1.7737，重叠 48/50）整理。
       数据：GEO GSE308682（不存于本仓库）。设置 <code>QUBO_DATA_DIR</code> 指向含
       <code>GSE308682_filtered_matrix.mtx.gz</code>、
       <code>GSE308682_filtered_features.tsv.gz</code>、

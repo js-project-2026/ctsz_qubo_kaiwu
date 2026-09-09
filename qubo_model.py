@@ -7,6 +7,7 @@ Matrix:        Q = (1-α) R - α diag(I)
 from __future__ import annotations
 
 import os
+import sys
 
 import numpy as np
 from sklearn.preprocessing import StandardScaler
@@ -46,6 +47,16 @@ except ImportError:
     HAS_KAIWU_PLUGIN = False
 
 from tqdm import tqdm
+
+
+def require_python_310():
+    """Kaiwu official wheels are 3.10-only. Fail fast on other interpreters."""
+    if sys.version_info[:2] != (3, 10):
+        raise SystemExit(
+            "Kaiwu official wheel needs Python 3.10.x, "
+            f"got {sys.version.split()[0]}. "
+            "Use .venv-py310 or the 'Python 3.10 (Kaiwu)' kernel."
+        )
 
 
 def _progress(iterable, **kwargs):
@@ -238,8 +249,14 @@ def _bqm_from_q(Q):
 
 
 def _energy(Q, f):
+    """Fᵀ Q F for a binary (or 0/1) mask. Non-finite results become +inf."""
     f = np.asarray(f, dtype=np.float64).ravel()
-    return float(f @ np.asarray(Q, dtype=np.float64) @ f)
+    Q = np.asarray(Q, dtype=np.float64)
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
+        e = float(f @ Q @ f)
+    if not np.isfinite(e):
+        return float(np.inf)
+    return e
 
 
 def tabu_timeout_ms(n, explicit=None):
@@ -267,11 +284,16 @@ def diagnose_qubo_solution(Q, vec, energy=None, k=None):
     diag = np.diag(Q)
     i_star = int(np.argmin(diag))
     e_one = float(diag[i_star])
-    qf = Q @ vec.astype(np.float64)
-    remove_delta = -2.0 * qf + diag
-    add_delta = 2.0 * qf + diag
-    n_better_off = int(np.sum((vec == 1) & (remove_delta < -1e-8)))
-    n_better_on = int(np.sum((vec == 0) & (add_delta < -1e-8)))
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
+        qf = Q @ vec.astype(np.float64)
+    qf = np.asarray(qf, dtype=np.float64)
+    if np.all(np.isfinite(qf)):
+        remove_delta = -2.0 * qf + diag
+        add_delta = 2.0 * qf + diag
+        n_better_off = int(np.sum((vec == 1) & (remove_delta < -1e-8)))
+        n_better_on = int(np.sum((vec == 0) & (add_delta < -1e-8)))
+    else:
+        n_better_off = n_better_on = -1
     energy_ok = e <= min(0.0, e_one) + 1e-6
     k_tol = 0 if k is None else (0 if int(k) < 10 else max(2, int(k) // 10))
     k_ok = True if k is None else abs(n_sel - int(k)) <= k_tol
@@ -280,7 +302,10 @@ def diagnose_qubo_solution(Q, vec, energy=None, k=None):
     print(f"  |F*|={n_sel}" + (f"  target k={int(k)}  tol={k_tol}" if k is not None else ""))
     print(f"  energy reported={e:.4f}  recomputed FᵀQF={e_re:.4f}")
     print(f"  empty mask energy=0  best singleton Q[{i_star},{i_star}]={e_one:.4f}")
-    print(f"  one-bit moves that would lower E: turn_off={n_better_off}  turn_on={n_better_on}")
+    print(
+        f"  one-bit moves that would lower E: turn_off={n_better_off}  turn_on={n_better_on}"
+        + ("  (skipped; QF overflowed)" if n_better_off < 0 else "")
+    )
     if abs(e - e_re) > 1e-4:
         print("  WARNING: reported energy disagrees with FᵀQF.")
     if e > 1e-8:
@@ -408,39 +433,46 @@ def _best_binary_from_ising_samples(samples, Q):
     return best_x, float(best_e)
 
 
-def _init_kaiwu_license():
-    if not HAS_KAIWU:
-        return
+def _kaiwu_credentials():
     user = os.environ.get("KAIWU_USER_ID") or os.environ.get("USER_ID")
     code = (
         os.environ.get("KAIWU_SDK_CODE")
         or os.environ.get("KAIWU_SDK_TOKEN")
         or os.environ.get("SDK_CODE")
     )
+    return user, code
+
+
+def _init_kaiwu_license():
+    """Optional. Classical Kaiwu solvers do not need CIM keys.
+
+    If USER_ID / SDK_CODE are set, initialize a local license file. Do not
+    call license.ensure_license() here — that can block on a console prompt.
+    """
+    if not HAS_KAIWU:
+        return
+    user, code = _kaiwu_credentials()
     lic = getattr(_kaiwu, "license", None)
     if lic is not None and user and code and hasattr(lic, "init"):
         lic.init(user, code)
 
 
 def _kaiwu_optimizer(kind, num_reads, seed):
-    _init_kaiwu_license()
+    if kind in {"kaiwu_sa", "kaiwu_tabu"}:
+        _init_kaiwu_license()
     if kind == "kaiwu_sa":
         return _kaiwu.classical.SimulatedAnnealingOptimizer(
             size_limit=max(1, int(num_reads)),
             rand_seed=seed,
         )
     if kind == "kaiwu_tabu":
+        max_iter = int(os.environ.get("KAIWU_TABU_MAX_ITER", "2000"))
         return _kaiwu.classical.TabuSearchOptimizer(
-            max_iter=2000,
+            max_iter=max_iter,
             size_limit=max(1, int(num_reads)),
         )
     if kind == "kaiwu_cim":
-        user = os.environ.get("KAIWU_USER_ID") or os.environ.get("USER_ID")
-        code = (
-            os.environ.get("KAIWU_SDK_CODE")
-            or os.environ.get("KAIWU_SDK_TOKEN")
-            or os.environ.get("SDK_CODE")
-        )
+        user, code = _kaiwu_credentials()
         if not user or not code:
             raise RuntimeError(
                 "kaiwu_cim needs KAIWU_USER_ID and KAIWU_SDK_CODE "
@@ -504,8 +536,8 @@ def solver_banner(solver=None):
         "sa": "D-Wave Ocean SimulatedAnnealingSampler (classical, local)",
         "leap": "D-Wave LeapHybridSampler (quantum-classical hybrid; DWAVE_API_TOKEN)",
         "custom_sa": "Built-in bit-flip simulated annealing (classical)",
-        "kaiwu_sa": "Kaiwu SimulatedAnnealingOptimizer (classical; kaiwu SDK)",
-        "kaiwu_tabu": "Kaiwu TabuSearchOptimizer (classical; kaiwu SDK)",
+        "kaiwu_sa": "Kaiwu SimulatedAnnealingOptimizer (classical CPU; no CIM key)",
+        "kaiwu_tabu": "Kaiwu TabuSearchOptimizer (classical CPU; no CIM key)",
         "kaiwu_cim": "Kaiwu CIMOptimizer (QBoson photonic CIM; KAIWU_USER_ID + KAIWU_SDK_CODE)",
     }
     extra = ""
@@ -547,7 +579,8 @@ def solve_qubo(
     return a random ~p/2 bitstring with energy worse than 0.
 
     Kaiwu / QBoson:
-      ``kaiwu_sa`` / ``kaiwu_tabu`` — classical, via kaiwu SDK
+      ``kaiwu_sa`` / ``kaiwu_tabu`` — classical local CPU; no CIM key.
+        Enterprise SDK may still want a one-time local license file.
       ``kaiwu_cim`` — photonic CIM (KAIWU_USER_ID + KAIWU_SDK_CODE)
 
     ``custom_sa`` — bit-flip SA in this file (also starts at all zeros).
