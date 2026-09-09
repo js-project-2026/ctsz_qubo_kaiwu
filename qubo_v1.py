@@ -29,6 +29,7 @@ from qubo_model import (
     solver_banner,
     available_solvers,
 )
+import qubo_model as _qubo_model
 from qubo_experiment import (
     compare_with_lasso_rfr,
     load_experiment,
@@ -39,12 +40,14 @@ from qubo_experiment import (
 # Paper-like real-data settings.
 # Solvers: tabu | sa | leap | custom_sa | kaiwu_sa | kaiwu_tabu | kaiwu_cim
 # leap needs DWAVE_API_TOKEN. kaiwu_cim needs KAIWU_USER_ID + KAIWU_SDK_CODE.
+# tabu timeout: QUBO_TABU_TIMEOUT_MS (ms/read). Ocean's 20 ms default is not used.
 USE_REAL_DATA = True
 N_TOP_GENES = 5000
 TARGET_MODE = "pseudotime"
 SOLVER = "tabu"
 
 print(solver_banner(SOLVER))
+print("qubo_model loaded from", _qubo_model.__file__)
 print("Available solvers:", {k: v["installed"] for k, v in available_solvers().items()})
 
 X, y, true_features, feature_names = load_experiment(
@@ -60,7 +63,7 @@ print(f"Redundancy R (5x5):\n{R[:5, :5]}")
 K = target_cardinality(X.shape[1], k=50)
 print(f"Target cardinality K={K}")
 
-selected_features_qubo, energy, alpha, Q = solve_qubo_target_k(
+selected_features_qubo, energy, alpha, Q, report = solve_qubo_target_k(
     I, R, k=K, solver=SOLVER
 )
 selected_idx_qubo = np.where(selected_features_qubo == 1)[0]
@@ -69,7 +72,13 @@ print(f"QUBO selected indices: {selected_idx_qubo}")
 if feature_names is not None:
     print("QUBO selected genes:", [feature_names[i] for i in selected_idx_qubo])
 
-k_compare = max(len(selected_idx_qubo), 1)
+k_compare = K
+if not report["accepted"]:
+    print(
+        "QUBO did not pass energy/cardinality acceptance. "
+        f"LASSO and RF are compared at target K={K}, not |F*|={len(selected_idx_qubo)}. "
+        "MSE below is not evidence that QUBO minimized Eq. (4)."
+    )
 selected_idx_lasso, selected_idx_rf = compare_with_lasso_rfr(
     X, y, I, true_features, selected_idx_qubo, K=k_compare, feature_names=feature_names
 )

@@ -46,6 +46,8 @@ GSE308682_feature_reference.csv.gz
 
 ```bash
 export QUBO_DATA_DIR=/path/to/gse308682_dir
+# Optional: Ocean tabu budget in milliseconds per read (default scales with p; Ocean's 20 ms is not used).
+# export QUBO_TABU_TIMEOUT_MS=8000
 ```
 
 Or assign `os.environ["QUBO_DATA_DIR"]` at the top of `qubo_v1.py` / `qubo.ipynb` (see those files). Optional: `QUBO_REPO_DIR` if you launch Python from a directory that does not contain `qubo_model.py`. A template is in `.env.example`.
@@ -75,7 +77,7 @@ SOLVER = "tabu"  # see solver table below
 
 | `SOLVER` | Stack | Hardware | Env |
 | --- | --- | --- | --- |
-| `tabu` | `dwave-ocean-sdk` | classical CPU | — |
+| `tabu` | `dwave-ocean-sdk` | classical CPU | `QUBO_TABU_TIMEOUT_MS` (ms/read; Ocean default 20 is too small at $p=5000$) |
 | `sa` | `dwave-ocean-sdk` | classical CPU | — |
 | `leap` | `dwave-ocean-sdk` | D-Wave Leap hybrid | `DWAVE_API_TOKEN` |
 | `custom_sa` | this repo | classical CPU | — |

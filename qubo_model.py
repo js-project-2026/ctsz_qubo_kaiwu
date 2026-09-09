@@ -211,6 +211,7 @@ def build_qubo_matrix(I, R, alpha=0.5, k=None):
 
 
 def _qubo_dict(Q, show_progress=False):
+    """Dense dict for samplers that still want sample_qubo. Prefer _bqm_from_q."""
     qubo = {}
     n = Q.shape[0]
     rows = range(n)
@@ -225,8 +226,88 @@ def _qubo_dict(Q, show_progress=False):
     return qubo
 
 
+def _bqm_from_q(Q):
+    """Binary QUBO whose energy equals Fᵀ Q F (Q symmetrized)."""
+    import dimod
+
+    Q = np.asarray(Q, dtype=np.float64)
+    if Q.ndim != 2 or Q.shape[0] != Q.shape[1]:
+        raise ValueError("Q must be a square matrix")
+    Q = 0.5 * (Q + Q.T)
+    return dimod.BinaryQuadraticModel(Q, "BINARY")
+
+
 def _energy(Q, f):
-    return float(f @ Q @ f)
+    f = np.asarray(f, dtype=np.float64).ravel()
+    return float(f @ np.asarray(Q, dtype=np.float64) @ f)
+
+
+def tabu_timeout_ms(n, explicit=None):
+    """Milliseconds per Ocean tabu read. Ocean's default is 20 ms — too small at p~5000."""
+    if explicit is not None:
+        return max(1, int(explicit))
+    raw = os.environ.get("QUBO_TABU_TIMEOUT_MS", "").strip()
+    if raw:
+        return max(1, int(raw))
+    return int(max(500, min(30_000, 2 * int(n))))
+
+
+def diagnose_qubo_solution(Q, vec, energy=None, k=None):
+    """Acceptance checks: energy vs empty/singleton, and |F*| vs target k.
+
+    A minimizer of FᵀQF must beat the empty mask (E=0) and the best singleton
+    (E=min Q_ii). Positive energy is not an optimum. Returns a dict; prints a report.
+    """
+    Q = np.asarray(Q, dtype=np.float64)
+    vec = np.asarray(vec, dtype=int).ravel()
+    n = vec.size
+    n_sel = int(vec.sum())
+    e = float(energy) if energy is not None else _energy(Q, vec)
+    e_re = _energy(Q, vec)
+    diag = np.diag(Q)
+    i_star = int(np.argmin(diag))
+    e_one = float(diag[i_star])
+    qf = Q @ vec.astype(np.float64)
+    remove_delta = -2.0 * qf + diag
+    add_delta = 2.0 * qf + diag
+    n_better_off = int(np.sum((vec == 1) & (remove_delta < -1e-8)))
+    n_better_on = int(np.sum((vec == 0) & (add_delta < -1e-8)))
+    energy_ok = e <= min(0.0, e_one) + 1e-6
+    k_tol = 0 if k is None else (0 if int(k) < 10 else max(2, int(k) // 10))
+    k_ok = True if k is None else abs(n_sel - int(k)) <= k_tol
+    accepted = bool(energy_ok and k_ok)
+    print("QUBO acceptance:")
+    print(f"  |F*|={n_sel}" + (f"  target k={int(k)}  tol={k_tol}" if k is not None else ""))
+    print(f"  energy reported={e:.4f}  recomputed FᵀQF={e_re:.4f}")
+    print(f"  empty mask energy=0  best singleton Q[{i_star},{i_star}]={e_one:.4f}")
+    print(f"  one-bit moves that would lower E: turn_off={n_better_off}  turn_on={n_better_on}")
+    if abs(e - e_re) > 1e-4:
+        print("  WARNING: reported energy disagrees with FᵀQF.")
+    if e > 1e-8:
+        print(
+            "  FAIL: energy > 0, worse than selecting nothing. "
+            "This is not a minimizer of Eq. (4). Do not use MSE to argue otherwise."
+        )
+    elif not energy_ok:
+        print("  FAIL: energy is worse than the best singleton; local search did not finish.")
+    if k is not None and not k_ok:
+        print(f"  FAIL: |F*|={n_sel} is not within {k_tol} of target k={int(k)}.")
+    if accepted:
+        print("  PASS: energy beats empty/singleton and cardinality is near k.")
+    else:
+        print("  overall: NOT ACCEPTED as a k-gene QUBO panel.")
+    return {
+        "accepted": accepted,
+        "energy_ok": energy_ok,
+        "k_ok": k_ok,
+        "n_sel": n_sel,
+        "energy": e,
+        "energy_recomputed": e_re,
+        "energy_singleton": e_one,
+        "n_better_off": n_better_off,
+        "n_better_on": n_better_on,
+        "n": n,
+    }
 
 
 def custom_simulated_annealing(
@@ -240,7 +321,8 @@ def custom_simulated_annealing(
     """Unconstrained bit-flip SA (minimize Fᵀ Q F). No fixed cardinality."""
     rng = np.random.default_rng(seed)
     n = Q.shape[0]
-    current = rng.integers(0, 2, size=n)
+    # Start at the empty mask (E=0). Random 50% ones can sit at huge positive energy.
+    current = np.zeros(n, dtype=int)
     current_energy = _energy(Q, current)
     best = current.copy()
     best_energy = current_energy
@@ -445,28 +527,39 @@ def _default_solver():
     return "custom_sa"
 
 
-def solve_qubo(Q, num_reads=100, seed=None, max_iter=20000, solver=None):
+def solve_qubo(
+    Q,
+    num_reads=8,
+    seed=None,
+    max_iter=20000,
+    solver=None,
+    timeout_ms=None,
+):
     """Minimize QUBO. Switch backends with ``solver``.
 
     D-Wave Ocean (``dwave-ocean-sdk`` is already a dependency):
-      ``tabu`` / ``sa`` — classical local samplers (what the last notebook used)
-      ``leap`` — Leap hybrid (needs DWAVE_API_TOKEN; this is the D-Wave cloud QPU path)
+      ``tabu`` / ``sa`` — classical local samplers
+      ``leap`` — Leap hybrid (needs DWAVE_API_TOKEN)
 
-    Kaiwu / QBoson ([kaiwu-pytorch-plugin](https://github.com/qboson/kaiwu-pytorch-plugin)):
+    Ocean TabuSampler default timeout is **20 milliseconds per read**. This
+    function overrides that (see ``tabu_timeout_ms`` / ``QUBO_TABU_TIMEOUT_MS``)
+    and seeds the first read at the all-zero mask so a timed-out search cannot
+    return a random ~p/2 bitstring with energy worse than 0.
+
+    Kaiwu / QBoson:
       ``kaiwu_sa`` / ``kaiwu_tabu`` — classical, via kaiwu SDK
-      ``kaiwu_cim`` — photonic coherent Ising machine (needs KAIWU_USER_ID + KAIWU_SDK_CODE)
+      ``kaiwu_cim`` — photonic CIM (KAIWU_USER_ID + KAIWU_SDK_CODE)
 
-    ``custom_sa`` — bit-flip SA in this file.
+    ``custom_sa`` — bit-flip SA in this file (also starts at all zeros).
     """
     solver = (solver or _default_solver()).lower()
     aliases = {"cim": "kaiwu_cim", "kaiwu": "kaiwu_cim", "dwave_sa": "sa", "ocean_tabu": "tabu"}
     solver = aliases.get(solver, solver)
     n = Q.shape[0]
+    num_reads = max(1, int(num_reads))
 
     if solver in {"kaiwu_sa", "kaiwu_tabu", "kaiwu_cim"}:
         return _solve_kaiwu(Q, solver, num_reads=num_reads, seed=seed)
-
-    qubo = _qubo_dict(Q, show_progress=n >= 500)
 
     if solver == "leap":
         from dwave.system import LeapHybridSampler
@@ -475,20 +568,41 @@ def solve_qubo(Q, num_reads=100, seed=None, max_iter=20000, solver=None):
         kwargs = {}
         if token:
             kwargs["token"] = token
-        result = LeapHybridSampler(**kwargs).sample_qubo(qubo)
+        bqm = _bqm_from_q(Q)
+        result = LeapHybridSampler(**kwargs).sample(bqm)
         return _sample_to_vec(result.first.sample, n), float(result.first.energy)
 
     if solver == "tabu":
         if not HAS_TABU:
             raise ImportError("TabuSampler requires dwave-ocean-sdk / dwave-samplers")
-        result = TabuSampler().sample_qubo(qubo, num_reads=num_reads, seed=seed)
-        return _sample_to_vec(result.first.sample, n), float(result.first.energy)
+        to_ms = tabu_timeout_ms(n, timeout_ms)
+        bqm = _bqm_from_q(Q)
+        print(
+            f"TabuSampler: n={n}, num_reads={num_reads}, timeout={to_ms} ms/read "
+            f"(Ocean default is 20 ms), first initial state = all zeros"
+        )
+        result = TabuSampler().sample(
+            bqm,
+            num_reads=num_reads,
+            seed=seed,
+            timeout=to_ms,
+            initial_states=np.zeros(n, dtype=np.int8),
+            initial_states_generator="random",
+        )
+        vec = _sample_to_vec(result.first.sample, n)
+        energy = float(result.first.energy)
+        return vec, energy
 
     if solver == "sa":
         if not HAS_DWAVE:
             raise ImportError("SimulatedAnnealingSampler requires dwave-ocean-sdk")
-        result = SimulatedAnnealingSampler().sample_qubo(
-            qubo, num_reads=num_reads, seed=seed
+        bqm = _bqm_from_q(Q)
+        result = SimulatedAnnealingSampler().sample(
+            bqm,
+            num_reads=num_reads,
+            seed=seed,
+            initial_states=np.zeros(n, dtype=np.int8),
+            initial_states_generator="random",
         )
         return _sample_to_vec(result.first.sample, n), float(result.first.energy)
 
@@ -500,19 +614,44 @@ def solve_qubo(Q, num_reads=100, seed=None, max_iter=20000, solver=None):
     return vec, energy
 
 
-def _n_selected(I, R, alpha, k, num_reads=20, seed=0, solver=None):
+def _n_selected(
+    I, R, alpha, k, num_reads=2, seed=0, solver=None, timeout_ms=None
+):
     Q = build_qubo_matrix(I, R, alpha=alpha, k=k)
-    vec, _ = solve_qubo(Q, num_reads=num_reads, seed=seed, max_iter=4000, solver=solver)
-    return int(vec.sum()), vec
+    vec, energy = solve_qubo(
+        Q,
+        num_reads=num_reads,
+        seed=seed,
+        max_iter=4000,
+        solver=solver,
+        timeout_ms=timeout_ms,
+    )
+    return int(vec.sum()), vec, float(energy)
 
 
 def solve_qubo_target_k(
-    I, R, k=50, num_reads=100, seed=0, n_bisect=16, solver=None
+    I,
+    R,
+    k=50,
+    num_reads=8,
+    seed=0,
+    n_bisect=16,
+    solver=None,
+    timeout_ms=None,
+    bisect_reads=2,
 ):
     """Bisect α ∈ [0, 1] so the unconstrained solution has about k ones.
 
     Matches the authors' root_scalar search over α (annealing_functions.py).
     n_selected increases with α (α=0 → few/none, α=1 → all I>0 features).
+
+    Logs every probe (α, |F*|, energy). ``best_alpha`` is the probe with
+    smallest |n_sel−k|, not the last tqdm midpoint.
+
+    Returns
+    -------
+    vec, energy, alpha, Q, report
+        ``report`` is the dict from ``diagnose_qubo_solution``.
     """
     k = int(k)
     solver = solver or _default_solver()
@@ -520,18 +659,34 @@ def solve_qubo_target_k(
     best_vec = None
     best_alpha = 0.5
     best_diff = np.inf
+    best_energy = np.inf
+    probe_reads = max(1, int(bisect_reads))
     bar = _progress(range(n_bisect), desc="Bisect α for |F*|≈k")
-    for _ in bar:
+    for step in bar:
         mid = 0.5 * (lo + hi)
-        n_sel, vec = _n_selected(
-            I, R, mid, k, num_reads=max(20, num_reads // 2), seed=seed, solver=solver
+        n_sel, vec, energy = _n_selected(
+            I,
+            R,
+            mid,
+            k,
+            num_reads=probe_reads,
+            seed=seed,
+            solver=solver,
+            timeout_ms=timeout_ms,
         )
-        bar.set_postfix(alpha=f"{mid:.3f}", n_sel=n_sel, refresh=False)
+        bar.set_postfix(
+            alpha=f"{mid:.4f}", n_sel=n_sel, E=f"{energy:.2f}", refresh=False
+        )
+        print(
+            f"  α-bisect {step + 1}/{n_bisect}: α={mid:.6f}  |F*|={n_sel}  "
+            f"energy={energy:.4f}  |n-k|={abs(n_sel - k)}"
+        )
         diff = abs(n_sel - k)
-        if diff < best_diff:
+        if diff < best_diff or (diff == best_diff and energy < best_energy):
             best_diff = diff
             best_vec = vec
             best_alpha = mid
+            best_energy = energy
         if n_sel < k:
             lo = mid
         else:
@@ -539,9 +694,17 @@ def solve_qubo_target_k(
         if diff == 0:
             break
     bar.close()
+    print(f"  kept best_alpha={best_alpha:.6f} (|n-k|={best_diff}, E={best_energy:.4f})")
     Q = build_qubo_matrix(I, R, alpha=best_alpha, k=k)
-    vec, energy = solve_qubo(Q, num_reads=num_reads, seed=seed, solver=solver)
-    if abs(int(vec.sum()) - k) <= abs(int(best_vec.sum()) - k):
-        return vec, energy, best_alpha, Q
-    Q_best = build_qubo_matrix(I, R, alpha=best_alpha, k=k)
-    return best_vec, _energy(Q_best, best_vec), best_alpha, Q_best
+    vec, energy = solve_qubo(
+        Q, num_reads=num_reads, seed=seed, solver=solver, timeout_ms=timeout_ms
+    )
+    if abs(int(vec.sum()) - k) < abs(int(best_vec.sum()) - k) or (
+        abs(int(vec.sum()) - k) == abs(int(best_vec.sum()) - k)
+        and energy <= _energy(Q, best_vec)
+    ):
+        chosen, chosen_e = vec, energy
+    else:
+        chosen, chosen_e = best_vec, _energy(Q, best_vec)
+    report = diagnose_qubo_solution(Q, chosen, energy=chosen_e, k=k)
+    return chosen, chosen_e, best_alpha, Q, report
