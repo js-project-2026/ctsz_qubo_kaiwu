@@ -30,7 +30,7 @@ export QUBO_V2_DATA_DIR=/path/to/integrative-scrna-scatac-human-foetal
 
 | | Smoke | Benchmark |
 | --- | --- | --- |
-| Flag | `SMOKE = True` | `SMOKE = False` |
+| Flag | `SMOKE = True` | `SMOKE = False` (default) |
 | Cells | 200 subsample | all PAGA hematopoietic cells (~4,463) |
 | Genes | 80 HVGs | 5,000 HVGs |
 | k | 10 | 50 |
@@ -57,3 +57,9 @@ Notebook: `v2/qubo_v2.ipynb`. Set `QUBO_V2_DATA_DIR` in the setup cell. Same ker
 - `TRANSFORM = "log"` (default) or `"pearson"` (Lause residuals; UMI-oriented, sensitivity only)
 - `TARGET_MODE = "paga_dpt"` (default), `"dpt"` (recompute DPT, iroot = max MLLT3 in HSC/MPP), or `"gene"`
 - `ROOT_GENE = "MLLT3"`
+
+## Results vs Ranzoni / Cvejic
+
+Open [`docs_v2/compare-ranzoni-2021.html`](../docs_v2/compare-ranzoni-2021.html) (English) or [中文](../docs_v2/compare-ranzoni-2021.zh.html). Bilingual briefing: [`docs_v2/briefing-qubo-v2.html`](../docs_v2/briefing-qubo-v2.html).
+
+Notebook run (4,463 × 5,000, published PAGA dpt): Ocean **|F\*|=51**, E=−0.7813, PASS; Kaiwu **|F\*|=45**, overlap 31/50. Q∩L 15/50. Ridge MSE: QUBO 0.0060, LASSO 0.0046, RF 0.0049, all 0.0180. Stem genes MLLT3/HOPX/SPINK2/NPR3 recovered without cluster labels.

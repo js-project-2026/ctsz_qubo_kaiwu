@@ -36,7 +36,7 @@ from experiment import (
 )
 
 # SMOKE=True: subsample cells/genes for a fast check. False: full 5k-HVG benchmark.
-SMOKE = True
+SMOKE = False
 USE_REAL_DATA = True
 N_TOP_GENES = 80 if SMOKE else 5000
 N_CELLS = 200 if SMOKE else None
@@ -47,7 +47,12 @@ SOLVER = "tabu"
 COMPARE_KAIWU_TABU = not SMOKE
 K_TARGET = 10 if SMOKE else 50
 
-print(f"Kernel Python {sys.version.split()[0]}")
+print(f"Kernel Python {sys.version.split()[0]}  (Kaiwu official wheel needs 3.10.x)")
+if sys.version_info[:2] != (3, 10):
+    raise SystemExit(
+        f"Need Python 3.10.x for Kaiwu (got {sys.version.split()[0]}). "
+        "Use .venv-py310 / kernel Python 3.10 (Kaiwu)."
+    )
 print(solver_banner(SOLVER))
 print("qubo_model loaded from", _qubo_model.__file__)
 print("v2 foetal_loader from", V2_DIR)

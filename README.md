@@ -32,6 +32,7 @@ Local solvers: D-Wave Ocean `TabuSampler` / `SimulatedAnnealingSampler` (**class
 | `docs/compare-romero-2025.html` | Latest notebook vs paper (English) |
 | `docs/compare-romero-2025.zh.html` | Same report in Chinese, including GSE308682 train/test split |
 | `docs/briefing-qubo-effort.html` | Bilingual progress report: k=50 at 5,000 genes, charts, optional CIM compare |
+| `docs_v2/` | Fetal Smart-seq2 QUBO vs Ranzoni/Cvejic (English + Chinese; charts + CIM/ARES) |
 | `v2/` | Fetal Smart-seq2 QUBO (Ranzoni / Cvejic GitLab). Same solver; see `v2/README.md` |
 | `docs/quantum-ultra-early-markers.html` | Strategy essay (bilingual); §09 is this repo’s gene-panel instance |
 | `docs/quantum-ultra-early-markers-v2.html` | Investor recast of the same science |
@@ -135,4 +136,9 @@ Open [`docs/compare-romero-2025.html`](docs/compare-romero-2025.html) or the Chi
 - The corrected 5,000-gene tabu run returned **|F\*|=50** at α\*=0.3945, energy **−1.7771** (10 s/read, zero init). A prior 20 ms / random-init run with |F\*|=2,456 is discarded. Linear test MSE (leaky 70/30 after selection): QUBO 0.0063, LASSO 0.0048, RF 0.0064, all genes 0.0092. Overlaps at k=50: Q∩L 24/50, Q∩RF 11/50.
 
 Synthetic §2.3 in `qubo_model.generate_synthetic_data` is the setting for Table 1–style source recall (`USE_REAL_DATA = False`).
+
+## Results vs Ranzoni / Cvejic (v2)
+
+Fetal Smart-seq2 write-up: [`docs_v2/compare-ranzoni-2021.html`](docs_v2/compare-ranzoni-2021.html) · [中文](docs_v2/compare-ranzoni-2021.zh.html) · bilingual briefing [`docs_v2/briefing-qubo-v2.html`](docs_v2/briefing-qubo-v2.html).
+Notebook: Ocean |F\*|=51, E=−0.7813; Kaiwu overlap 31/50; Q∩L 15/50.
 

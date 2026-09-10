@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>研究进展报告：胎儿造血 QUBO 基因面板（v2）</title>
+  <style>
+    :root {
+      --bg: #f6f5f1; --ink: #1c1b19; --muted: #5c5852; --line: #d9d4c8;
+      --card: #fff; --ok: #1f6b4a; --warn: #8a5a10; --bad: #9b2c2c; --accent: #2457a6; --paper: #7a7468;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 16px/1.65 ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif; color: var(--ink); background: var(--bg); }
+    main { max-width: 920px; margin: 0 auto; padding: 32px 20px 72px; }
+    h1 { font-size: 1.55rem; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 8px; }
+    h2 { font-size: 1.15rem; margin: 28px 0 10px; }
+    h3 { font-size: 1rem; margin: 16px 0 8px; }
+    .meta { color: var(--muted); font-size: 0.92rem; margin: 0 0 8px; }
+    .lede { color: var(--muted); margin: 0 0 20px; }
+    .lede a, a { color: var(--accent); }
+    nav { font-size: 0.95rem; margin: 0 0 20px; }
+    .lang { border-top: 1px solid var(--line); margin-top: 48px; padding-top: 36px; }
+    .card { background: var(--card); border: 1px solid var(--line); padding: 14px 16px; margin: 12px 0 16px; }
+    .ok { color: var(--ok); font-weight: 600; }
+    .warn { color: var(--warn); font-weight: 600; }
+    ul { padding-left: 1.2em; }
+    li { margin: 0.4em 0; }
+    table { width: 100%; border-collapse: collapse; background: var(--card); font-size: 0.92rem; margin: 10px 0 16px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-weight: 600; background: #eeeae2; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0 18px; }
+    .stat { background: var(--card); border: 1px solid var(--line); padding: 12px 14px; }
+    .stat b { display: block; font-size: 1.2rem; }
+    .stat span { color: var(--muted); font-size: 0.78rem; }
+    .bars { display: flex; flex-direction: column; gap: 9px; margin: 8px 0 4px; }
+    .bar-row { display: grid; grid-template-columns: 210px 1fr 72px; gap: 10px; align-items: center; }
+    .bar-row span { font-size: 0.82rem; color: var(--muted); }
+    .track { height: 14px; background: #e8e4da; }
+    .fill { height: 14px; background: var(--accent); }
+    .fill.ok { background: var(--ok); }
+    .fill.paper { background: var(--paper); }
+    .caption { color: var(--muted); font-size: 0.82rem; margin: 6px 0 18px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+    .chip { background: #eef3ea; border: 1px solid #c5d4c4; color: var(--ok); padding: 3px 8px; font-size: 0.82rem; font-weight: 600; }
+    .flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; align-items: stretch; margin: 12px 0 8px; }
+    .flow .box { background: var(--card); border: 1px solid var(--line); padding: 12px; font-size: 0.88rem; }
+    .flow .box strong { display: block; margin-bottom: 4px; }
+    .flow .arrow { color: var(--muted); align-self: center; font-size: 1.2rem; }
+    .flow .box.next { border-color: var(--accent); }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .formula { background: var(--card); border: 1px solid var(--line); padding: 18px 16px; margin: 12px 0 16px; text-align: center; font-size: 1.12rem; line-height: 1.9; }
+    .formula-sub { margin-top: 8px; font-size: 1rem; color: var(--muted); }
+    footer { margin-top: 32px; color: var(--muted); font-size: 0.85rem; }
+    @media (max-width: 720px) {
+      .stats, .pair, .flow { grid-template-columns: 1fr; }
+      .flow .arrow { display: none; }
+      .bar-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <nav><a href="#zh">中文</a> · <a href="#en">English</a>
+      · <a href="compare-ranzoni-2021.zh.html">数字对照</a>
+      · <a href="../docs/briefing-qubo-effort.html">v1 简报</a></nav>
+
+    <section id="zh">
+      <p class="meta">报告日期：2026年9月10日　·　阶段：胎儿全规模 k≈50 已通过；Kaiwu 本地 tabu 已对照；CIM 可选</p>
+      <h1>研究进展报告：胎儿造血轨迹上的 QUBO 非冗余基因面板（v2）</h1>
+      <p class="lede">
+        框架：Romero et al., <em>QMI</em> (2025) 7:114 式 (4)。
+        数据：Ranzoni et al., <em>Cell Stem Cell</em> (2021)；
+        GitLab <a href="https://gitlab.com/cvejic-group/integrative-scrna-scatac-human-foetal">integrative-scrna-scatac-human-foetal</a>。
+        数字与条图：<a href="compare-ranzoni-2021.zh.html">compare-ranzoni-2021.zh.html</a>。
+      </p>
+
+      <div class="stats">
+        <div class="stat"><b>4,463 × 5,000</b><span>PAGA 造血细胞 × log-CPM HVG</span></div>
+        <div class="stat"><b class="ok">|F*|=51</b><span>Ocean tabu：PASS</span></div>
+        <div class="stat"><b class="ok">E=−0.78</b><span>α*=0.2192，10 s/read</span></div>
+        <div class="stat"><b>31/50</b><span>Ocean ∩ Kaiwu tabu</span></div>
+      </div>
+
+      <h2>1. 目标：用他们的轨迹，做我们的面板</h2>
+      <p>
+        Cvejic 组已经完成了注释、PAGA 与 ATAC 整合。v2 不重复自编码器。
+        我们问的是转化问题：在他们<strong>已发表的 HSC/MPP 根拟时间</strong>上，
+        一组约 50 个<strong>互相不太冗余</strong>的基因能否编码这条轴。
+      </p>
+      <div class="formula" role="math">
+        min<sub><em>F</em></sub>
+        [ −α ∑ I<sub>i</sub> F<sub>i</sub> + (1−α) ∑ R<sub>ij</sub> F<sub>i</sub> F<sub>j</sub> ]
+        <div class="formula-sub">Q = (1−α)R − α diag(I)　·　I = MI(基因；PAGA dpt)，R = 基因间 MI</div>
+      </div>
+      <p>
+        数学上：负能量且 |F*|≈k 表示局部极小（空解能量为 0）。
+        生物学上：高 I、低 R 的集合应对准干性程序，而不是整块珠蛋白。
+        健康上：这是可下单的卡盒，不是 5,000 个 HVG。
+      </p>
+
+      <h2>2. 与 GitLab 结果的关系</h2>
+      <table>
+        <thead><tr><th></th><th>他们</th><th>我们</th></tr></thead>
+        <tbody>
+          <tr><td>细胞</td><td>PAGA 造血 ~4,463；HSC-MPP=1200</td><td>相同</td></tr>
+          <tr><td>T</td><td>PAGA+FA2，HSC/MPP 根</td><td>直接读 <code>dpt_pseudotime</code></td></tr>
+          <tr><td>特征</td><td>1,000 HVG + AE + BBKNN</td><td>5,000 log-CPM 方差 HVG</td></tr>
+          <tr><td>输出</td><td>簇、DE、分类准确率、ATAC</td><td>50 基因掩码 + 与 LASSO/RF 重叠</td></tr>
+        </tbody>
+      </table>
+      <p>
+        干性基因 <span class="ok">MLLT3、HOPX、SPINK2、NPR3、SELL、FLT3</span> 进入 Ocean 面板，
+        与论文 HSC 叙述一致。CD34 在 LASSO/RF 中、不在 QUBO 中：冗余项 R 已由 SPINK2/MLLT3/SELL 覆盖。
+        Kaiwu 另给出 <span class="ok">HLF、CRHBP、HOXA9</span> —— 更贴近他们文中的 HSC 转录因子。
+      </p>
+
+      <h3>图 1　基数</h3>
+      <div class="bars">
+        <div class="bar-row"><span>目标 k</span><div class="track"><div class="fill ok" style="width:100%"></div></div><span>50</span></div>
+        <div class="bar-row"><span>Ocean tabu</span><div class="track"><div class="fill ok" style="width:100%"></div></div><span>51</span></div>
+        <div class="bar-row"><span>Kaiwu tabu</span><div class="track"><div class="fill ok" style="width:90%"></div></div><span>45</span></div>
+      </div>
+      <p class="caption">均在容差 5 内，验收 PASS。</p>
+
+      <h3>图 2　Ridge MSE（相对全 5,000 基因 0.0180）</h3>
+      <div class="bars">
+        <div class="bar-row"><span>LASSO k=48</span><div class="track"><div class="fill" style="width:25.6%"></div></div><span>0.0046</span></div>
+        <div class="bar-row"><span>RF k=50</span><div class="track"><div class="fill" style="width:27.2%"></div></div><span>0.0049</span></div>
+        <div class="bar-row"><span>Ocean k=51</span><div class="track"><div class="fill" style="width:33.3%"></div></div><span>0.0060</span></div>
+        <div class="bar-row"><span>Kaiwu k=45</span><div class="track"><div class="fill" style="width:33.9%"></div></div><span>0.0061</span></div>
+        <div class="bar-row"><span>全部基因</span><div class="track"><div class="fill paper" style="width:100%"></div></div><span>0.0180</span></div>
+      </div>
+      <p class="caption">70/30 在选择之后，有泄漏。LASSO 拟合更好是预期：QUBO 优化的是信息面板。</p>
+
+      <h3>图 3　重叠</h3>
+      <div class="bars">
+        <div class="bar-row"><span>Q ∩ LASSO</span><div class="track"><div class="fill" style="width:30%"></div></div><span>15/50</span></div>
+        <div class="bar-row"><span>Q ∩ RF</span><div class="track"><div class="fill" style="width:28%"></div></div><span>14/50</span></div>
+        <div class="bar-row"><span>Ocean ∩ Kaiwu</span><div class="track"><div class="fill ok" style="width:62%"></div></div><span>31/50</span></div>
+        <div class="bar-row"><span>v1 Ocean ∩ Kaiwu</span><div class="track"><div class="fill paper" style="width:96%"></div></div><span>48/50</span></div>
+      </div>
+      <p class="caption">胎儿 Q 比 v1 红系轴更平坦，两求解器成员差更大。</p>
+
+      <div class="pair">
+        <div class="card">
+          <h3>对准他们的 HSC 根</h3>
+          <div class="chips">
+            <span class="chip">MLLT3</span><span class="chip">HOPX</span>
+            <span class="chip">SPINK2</span><span class="chip">NPR3</span>
+            <span class="chip">SELL</span><span class="chip">FLT3</span>
+          </div>
+          <p class="caption" style="margin-bottom:0">不使用簇标签，只使用他们的 dpt。</p>
+        </div>
+        <div class="card">
+          <h3>信息结构 ≠ 线性冠军</h3>
+          <p>约 50 基因子集 MSE 远好于 5,000 基因。略差于 LASSO 可接受：买的是探针盒。</p>
+        </div>
+      </div>
+
+      <h2>3. 下一步：Kaiwu CIM</h2>
+      <div class="flow">
+        <div class="box"><strong>已完成</strong>他们的 h5ad + 发表 dpt → 式 (4)。Ocean |F*|=51，E=−0.78。</div>
+        <div class="arrow">→</div>
+        <div class="box"><strong class="ok">当前</strong>Kaiwu 本地 tabu |F*|=45，重叠 31/50。含 HLF/HOXA9。</div>
+        <div class="arrow">→</div>
+        <div class="box next"><strong>CIM 对照</strong>同一 Q：比能量与成员。不宣称击败 LASSO MSE。</div>
+      </div>
+      <p>
+        CIM 需要密钥。验收：稀疏、负能、干性基因仍在。失败记工程约束。
+        因 Ocean∩Kaiwu 仅 31/50，预期 CIM 成员抖动大于 v1。
+      </p>
+
+      <h2>4. 若结果好：生物学 / 健康 / ARES</h2>
+      <ul>
+        <li><strong>生物学：</strong>50 基因信息面板足以编码发表的胎儿 HSC→谱系轴。</li>
+        <li><strong>健康：</strong>HSC 适能 / 重建 / 前白血病 TF（MLLT3、HLF、HOXA9）的最小可观测集原型。非临床声明。</li>
+        <li><strong>ARES（航天医学）：</strong>辐射与微重力首先打击 HSC。低冗余卡盒适合探针预算极紧的在轨或模拟采样。CIM 用于新队列重解 Q，不是发现 k 的前提。</li>
+      </ul>
+
+      <h2>5. 结论</h2>
+      <div class="card">
+        <p>
+          v2 在 Ranzoni/Cvejic 发表轨迹上通过了全规模 QUBO（|F*|≈50，负能量），
+          并找回其 HSC 根基因。求解器是经典 tabu；CIM 为可选硬件对照。
+          Ridge MSE 有选择泄漏。基因表见对照页。
+        </p>
+      </div>
+    </section>
+
+    <section id="en" class="lang">
+      <p class="meta">Date: 10 September 2026　·　Phase: fetal full-scale k≈50 passed; Kaiwu local tabu compared; CIM optional</p>
+      <h1>Progress report: QUBO gene panel on the fetal hematopoietic trajectory (v2)</h1>
+      <p class="lede">
+        Framework: Romero et al., <em>QMI</em> (2025) 7:114 Eq. (4).
+        Data: Ranzoni et al., <em>Cell Stem Cell</em> (2021);
+        GitLab <a href="https://gitlab.com/cvejic-group/integrative-scrna-scatac-human-foetal">integrative-scrna-scatac-human-foetal</a>.
+        Charts: <a href="compare-ranzoni-2021.html">compare-ranzoni-2021.html</a>.
+      </p>
+
+      <div class="stats">
+        <div class="stat"><b>4,463 × 5,000</b><span>PAGA hematopoietic × log-CPM HVGs</span></div>
+        <div class="stat"><b class="ok">|F*|=51</b><span>Ocean tabu: PASS</span></div>
+        <div class="stat"><b class="ok">E=−0.78</b><span>α*=0.2192, 10 s/read</span></div>
+        <div class="stat"><b>31/50</b><span>Ocean ∩ Kaiwu tabu</span></div>
+      </div>
+
+      <h2>1. Goal: their trajectory, our cassette</h2>
+      <p>
+        The Cvejic group already annotated clusters, ran PAGA, and integrated ATAC.
+        v2 does not rerun the autoencoder. The translational question is whether a
+        ~50-gene <strong>low-redundancy</strong> set can encode their
+        <strong>published HSC/MPP-rooted pseudotime</strong>.
+      </p>
+      <div class="formula" role="math">
+        min<sub><em>F</em></sub>
+        [ −α ∑ I<sub>i</sub> F<sub>i</sub> + (1−α) ∑ R<sub>ij</sub> F<sub>i</sub> F<sub>j</sub> ]
+        <div class="formula-sub">Q = (1−α)R − α diag(I)　·　I = MI(gene; PAGA dpt), R = pairwise MI</div>
+      </div>
+      <p>
+        Math: negative energy and |F*|≈k is a local minimizer (empty mask has E=0).
+        Bio: high-I, low-R genes should hit stemness, not a globin block.
+        Health: an orderable cassette, not 5,000 HVGs.
+      </p>
+
+      <h2>2. Relation to the GitLab results</h2>
+      <table>
+        <thead><tr><th></th><th>Theirs</th><th>Ours</th></tr></thead>
+        <tbody>
+          <tr><td>Cells</td><td>PAGA hematopoietic ~4,463; HSC-MPP=1200</td><td>Same</td></tr>
+          <tr><td>T</td><td>PAGA+FA2, HSC/MPP root</td><td>Read <code>dpt_pseudotime</code></td></tr>
+          <tr><td>Features</td><td>1,000 HVGs + AE + BBKNN</td><td>5,000 log-CPM-variance HVGs</td></tr>
+          <tr><td>Output</td><td>Clusters, DE, classifier accuracy, ATAC</td><td>50-gene mask + LASSO/RF overlap</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Stem genes <span class="ok">MLLT3, HOPX, SPINK2, NPR3, SELL, FLT3</span> enter the Ocean panel,
+        matching their HSC narrative. CD34 is in LASSO/RF, not QUBO: <em>R</em> already covers that block via SPINK2/MLLT3/SELL.
+        Kaiwu additionally returns <span class="ok">HLF, CRHBP, HOXA9</span> — closer to their HSC TFs.
+      </p>
+
+      <h3>Figure 1. Cardinality</h3>
+      <div class="bars">
+        <div class="bar-row"><span>Target k</span><div class="track"><div class="fill ok" style="width:100%"></div></div><span>50</span></div>
+        <div class="bar-row"><span>Ocean tabu</span><div class="track"><div class="fill ok" style="width:100%"></div></div><span>51</span></div>
+        <div class="bar-row"><span>Kaiwu tabu</span><div class="track"><div class="fill ok" style="width:90%"></div></div><span>45</span></div>
+      </div>
+      <p class="caption">Both within tol=5; acceptance PASS.</p>
+
+      <h3>Figure 2. Ridge MSE (vs all 5,000 genes at 0.0180)</h3>
+      <div class="bars">
+        <div class="bar-row"><span>LASSO k=48</span><div class="track"><div class="fill" style="width:25.6%"></div></div><span>0.0046</span></div>
+        <div class="bar-row"><span>RF k=50</span><div class="track"><div class="fill" style="width:27.2%"></div></div><span>0.0049</span></div>
+        <div class="bar-row"><span>Ocean k=51</span><div class="track"><div class="fill" style="width:33.3%"></div></div><span>0.0060</span></div>
+        <div class="bar-row"><span>Kaiwu k=45</span><div class="track"><div class="fill" style="width:33.9%"></div></div><span>0.0061</span></div>
+        <div class="bar-row"><span>All genes</span><div class="track"><div class="fill paper" style="width:100%"></div></div><span>0.0180</span></div>
+      </div>
+      <p class="caption">70/30 after selection (leaky). LASSO winning the linear probe is expected.</p>
+
+      <h3>Figure 3. Overlaps</h3>
+      <div class="bars">
+        <div class="bar-row"><span>Q ∩ LASSO</span><div class="track"><div class="fill" style="width:30%"></div></div><span>15/50</span></div>
+        <div class="bar-row"><span>Q ∩ RF</span><div class="track"><div class="fill" style="width:28%"></div></div><span>14/50</span></div>
+        <div class="bar-row"><span>Ocean ∩ Kaiwu</span><div class="track"><div class="fill ok" style="width:62%"></div></div><span>31/50</span></div>
+        <div class="bar-row"><span>v1 Ocean ∩ Kaiwu</span><div class="track"><div class="fill paper" style="width:96%"></div></div><span>48/50</span></div>
+      </div>
+      <p class="caption">Fetal Q is flatter than v1’s erythroid DPT; solver membership differs more.</p>
+
+      <div class="pair">
+        <div class="card">
+          <h3>Hits their HSC root</h3>
+          <div class="chips">
+            <span class="chip">MLLT3</span><span class="chip">HOPX</span>
+            <span class="chip">SPINK2</span><span class="chip">NPR3</span>
+            <span class="chip">SELL</span><span class="chip">FLT3</span>
+          </div>
+          <p class="caption" style="margin-bottom:0">No cluster labels; only their dpt.</p>
+        </div>
+        <div class="card">
+          <h3>Information ≠ linear champion</h3>
+          <p>~50-gene subsets beat 5,000 genes on MSE. Trailing LASSO is acceptable: the product is a probe box.</p>
+        </div>
+      </div>
+
+      <h2>3. Next: Kaiwu CIM</h2>
+      <div class="flow">
+        <div class="box"><strong>Done</strong>Their h5ad + published dpt → Eq. (4). Ocean |F*|=51, E=−0.78.</div>
+        <div class="arrow">→</div>
+        <div class="box"><strong class="ok">Now</strong>Kaiwu local tabu |F*|=45, overlap 31/50. Includes HLF/HOXA9.</div>
+        <div class="arrow">→</div>
+        <div class="box next"><strong>CIM compare</strong>Same Q: energy and members. No claim vs LASSO MSE.</div>
+      </div>
+      <p>
+        CIM needs a key. Accept: sparse, negative energy, stem genes still present. A miss is an engineering constraint.
+        Because Ocean∩Kaiwu is only 31/50, expect more membership jitter than v1.
+      </p>
+
+      <h2>4. If it looks good: bio / health / ARES</h2>
+      <ul>
+        <li><strong>Biology:</strong> A 50-gene information panel can encode the published fetal HSC→lineage axis.</li>
+        <li><strong>Health:</strong> Prototype minimal observable for HSC fitness / reconstitution / pre-leukemic TFs (MLLT3, HLF, HOXA9). Not a clinical claim.</li>
+        <li><strong>ARES (aerospace / space-health):</strong> Radiation and microgravity hit HSCs first. A low-redundancy cassette fits tight in-flight probe budgets. CIM is how you re-solve Q on a new cohort, not how you discover k.</li>
+      </ul>
+
+      <h2>5. Conclusion</h2>
+      <div class="card">
+        <p>
+          v2 passed full-scale QUBO on the Ranzoni/Cvejic published trajectory (|F*|≈50, negative energy)
+          and recovered their HSC-root genes. Solvers are classical tabu; CIM is optional hardware compare.
+          Ridge MSE is leaky. Gene lists are on the comparison page.
+        </p>
+      </div>
+    </section>
+
+    <footer>
+      Source: <code>v2/qubo_v2.ipynb</code>, Python 3.10.21.
+      Ocean tabu |F*|=51, E=−0.7813; Kaiwu tabu |F*|=45, E=−0.7789, overlap 31/50.
+    </footer>
+  </main>
+</body>
+</html>

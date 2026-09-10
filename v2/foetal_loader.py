@@ -127,6 +127,10 @@ def load_foetal_qubo_data(
     ensembl = None
     if "Ensembl" in counts_ad.var.columns:
         ensembl = np.asarray(counts_ad.var["Ensembl"]).astype(str)
+    print(
+        f"Hematopoietic cells: {counts.shape[0]} × {counts.shape[1]} genes "
+        f"(PAGA n={paga_ad.n_obs})"
+    )
 
     if n_cells is not None and n_cells < counts.shape[0]:
         rng = np.random.default_rng(cell_sample_seed)
