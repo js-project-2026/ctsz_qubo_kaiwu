@@ -32,6 +32,7 @@ Local solvers: D-Wave Ocean `TabuSampler` / `SimulatedAnnealingSampler` (**class
 | `docs/compare-romero-2025.html` | Latest notebook vs paper (English) |
 | `docs/compare-romero-2025.zh.html` | Same report in Chinese, including GSE308682 train/test split |
 | `docs/briefing-qubo-effort.html` | Bilingual progress report: k=50 at 5,000 genes, charts, optional CIM compare |
+| `v2/` | Fetal Smart-seq2 QUBO (Ranzoni / Cvejic GitLab). Same solver; see `v2/README.md` |
 | `docs/quantum-ultra-early-markers.html` | Strategy essay (bilingual); §09 is this repo’s gene-panel instance |
 | `docs/quantum-ultra-early-markers-v2.html` | Investor recast of the same science |
 
