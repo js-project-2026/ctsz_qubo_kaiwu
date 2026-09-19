@@ -52,6 +52,11 @@ GSE308682_feature_reference.csv.gz
 export QUBO_DATA_DIR=/path/to/gse308682_dir
 # Optional: Ocean tabu budget in milliseconds per read (default scales with p; Ocean's 20 ms is not used).
 # export QUBO_TABU_TIMEOUT_MS=8000
+# Hard wall-clock kill (seconds) if tabu greedy-descent ignores timeout on a flat Q:
+# export QUBO_TABU_WALLCLOCK_S=120
+# Optional: 0 = no Palubeckis restarts (faster; default is Ocean's 1e6, still capped by timeout).
+# export QUBO_TABU_NUM_RESTARTS=0
+# PYTHONUNBUFFERED=1  # so α-bisect lines appear immediately when not on a TTY
 ```
 
 Or assign `os.environ["QUBO_DATA_DIR"]` at the top of `qubo_v1.py` / `qubo.ipynb` (see those files). Optional: `QUBO_REPO_DIR` if you launch Python from a directory that does not contain `qubo_model.py`. A template is in `.env.example`.

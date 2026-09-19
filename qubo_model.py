@@ -269,6 +269,97 @@ def tabu_timeout_ms(n, explicit=None):
     return int(max(500, min(30_000, 2 * int(n))))
 
 
+def tabu_num_restarts():
+    """Ocean default is 1_000_000. 0 = one simple tabu search (no Palubeckis restarts)."""
+    raw = os.environ.get("QUBO_TABU_NUM_RESTARTS", "").strip()
+    if raw:
+        return max(0, int(raw))
+    return 1_000_000
+
+
+def tabu_wallclock_s(timeout_ms, num_reads):
+    """Hard process deadline. Ocean ``timeout`` is not checked during greedy descent."""
+    raw = os.environ.get("QUBO_TABU_WALLCLOCK_S", "").strip()
+    if raw:
+        return max(1.0, float(raw))
+    return max(90.0, 4.0 * (float(timeout_ms) / 1000.0) * max(1, int(num_reads)))
+
+
+def _tabu_sample_job(args):
+    """Top-level worker for spawn: (Q, num_reads, seed, timeout_ms, num_restarts)."""
+    Q, num_reads, seed, to_ms, num_restarts = args
+    n = Q.shape[0]
+    bqm = _bqm_from_q(Q)
+    result = TabuSampler().sample(
+        bqm,
+        num_reads=num_reads,
+        seed=seed,
+        timeout=to_ms,
+        num_restarts=num_restarts,
+        initial_states=np.zeros(n, dtype=np.int8),
+        initial_states_generator="random",
+    )
+    vec = _sample_to_vec(result.first.sample, n)
+    energy = float(result.first.energy)
+    return vec, energy
+
+
+def _tabu_process_entry(queue, job):
+    try:
+        queue.put(("ok", _tabu_sample_job(job)))
+    except Exception as exc:  # pragma: no cover
+        queue.put(("err", f"{type(exc).__name__}: {exc}"))
+
+
+def _solve_tabu(Q, num_reads, seed, to_ms):
+    """TabuSampler with a hard wall-clock kill.
+
+    dwave-samplers' C++ ``simpleTabuSearch`` only checks ``timeout`` between
+    neighbourhood sweeps. After an improving move it calls ``localSearchInternal``,
+    a greedy descent with **no time check**. Near α* the fetal Q is often numerically
+    flat (many ΔE ≈ 0), so that loop can run for hours. ``QUBO_TABU_TIMEOUT_MS``
+    cannot interrupt it. Each ``sample()`` runs in a spawn subprocess and is
+    terminated if ``QUBO_TABU_WALLCLOCK_S`` (or a multiple of timeout×reads) elapses.
+    """
+    import multiprocessing as mp
+
+    n = int(Q.shape[0])
+    num_restarts = tabu_num_restarts()
+    hard_s = tabu_wallclock_s(to_ms, num_reads)
+    print(
+        f"TabuSampler: n={n}, num_reads={num_reads}, timeout={to_ms} ms/read "
+        f"(Ocean default is 20 ms), num_restarts={num_restarts}, "
+        f"hard wall-clock={hard_s:.0f}s, first initial state = all zeros",
+        flush=True,
+    )
+    payload = (np.asarray(Q, dtype=np.float64), int(num_reads), seed, int(to_ms), int(num_restarts))
+    ctx = mp.get_context("spawn")
+    queue = ctx.Queue()
+    proc = ctx.Process(target=_tabu_process_entry, args=(queue, payload))
+    proc.start()
+    proc.join(hard_s)
+    if proc.is_alive():
+        print(
+            f"WARNING: TabuSampler exceeded {hard_s:.0f}s wall-clock "
+            f"(Ocean timeout does not bind greedy descent on a flat Q). "
+            f"Killing the sampler process and returning the zero mask.",
+            flush=True,
+        )
+        proc.terminate()
+        proc.join(10)
+        if proc.is_alive():
+            proc.kill()
+            proc.join(5)
+        return np.zeros(n, dtype=int), 0.0
+    if queue.empty():
+        print("WARNING: TabuSampler process exited with no result; using zero mask.", flush=True)
+        return np.zeros(n, dtype=int), 0.0
+    status, payload_out = queue.get()
+    if status != "ok":
+        raise RuntimeError(f"TabuSampler worker failed: {payload_out}")
+    return payload_out
+
+
 def diagnose_qubo_solution(Q, vec, energy=None, k=None):
     """Acceptance checks: energy vs empty/singleton, and |F*| vs target k.
 
@@ -609,22 +700,7 @@ def solve_qubo(
         if not HAS_TABU:
             raise ImportError("TabuSampler requires dwave-ocean-sdk / dwave-samplers")
         to_ms = tabu_timeout_ms(n, timeout_ms)
-        bqm = _bqm_from_q(Q)
-        print(
-            f"TabuSampler: n={n}, num_reads={num_reads}, timeout={to_ms} ms/read "
-            f"(Ocean default is 20 ms), first initial state = all zeros"
-        )
-        result = TabuSampler().sample(
-            bqm,
-            num_reads=num_reads,
-            seed=seed,
-            timeout=to_ms,
-            initial_states=np.zeros(n, dtype=np.int8),
-            initial_states_generator="random",
-        )
-        vec = _sample_to_vec(result.first.sample, n)
-        energy = float(result.first.energy)
-        return vec, energy
+        return _solve_tabu(Q, num_reads=num_reads, seed=seed, to_ms=to_ms)
 
     if solver == "sa":
         if not HAS_DWAVE:
@@ -712,7 +788,8 @@ def solve_qubo_target_k(
         )
         print(
             f"  α-bisect {step + 1}/{n_bisect}: α={mid:.6f}  |F*|={n_sel}  "
-            f"energy={energy:.4f}  |n-k|={abs(n_sel - k)}"
+            f"energy={energy:.4f}  |n-k|={abs(n_sel - k)}",
+            flush=True,
         )
         diff = abs(n_sel - k)
         if diff < best_diff or (diff == best_diff and energy < best_energy):
@@ -727,8 +804,13 @@ def solve_qubo_target_k(
         if diff == 0:
             break
     bar.close()
-    print(f"  kept best_alpha={best_alpha:.6f} (|n-k|={best_diff}, E={best_energy:.4f})")
+    print(f"  kept best_alpha={best_alpha:.6f} (|n-k|={best_diff}, E={best_energy:.4f})", flush=True)
     Q = build_qubo_matrix(I, R, alpha=best_alpha, k=k)
+    print(
+        f"  final tabu refine at α* with num_reads={num_reads} "
+        f"(bisection used {probe_reads} reads/probe)",
+        flush=True,
+    )
     vec, energy = solve_qubo(
         Q, num_reads=num_reads, seed=seed, solver=solver, timeout_ms=timeout_ms
     )

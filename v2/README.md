@@ -57,6 +57,9 @@ Notebook: `v2/qubo_v2.ipynb`. Set `QUBO_V2_DATA_DIR` in the setup cell. Same ker
 - `TRANSFORM = "log"` (default) or `"pearson"` (Lause residuals; UMI-oriented, sensitivity only)
 - `TARGET_MODE = "paga_dpt"` (default), `"dpt"` (recompute DPT, iroot = max MLLT3 in HSC/MPP), or `"gene"`
 - `ROOT_GENE = "MLLT3"`
+- Tabu hang near α≈0.2: Ocean ``timeout`` does not bind greedy descent. Use
+  `PYTHONUNBUFFERED=1`, `QUBO_TABU_WALLCLOCK_S=120`, optional `QUBO_TABU_NUM_RESTARTS=0`.
+  Or `SOLVER="kaiwu_tabu"` / `"sa"` for the α-search.
 
 ## Results vs Ranzoni / Cvejic
 
