@@ -28,6 +28,7 @@ from qubo_model import (
 )
 import qubo_model as _qubo_model
 from experiment import (
+    compare_kaiwu_cim_on_same_q,
     compare_kaiwu_tabu_on_same_q,
     compare_with_lasso_rfr,
     load_experiment,
@@ -45,6 +46,7 @@ TARGET_MODE = "paga_dpt"   # paga_dpt | dpt | gene
 ROOT_GENE = "MLLT3"
 SOLVER = "tabu"
 COMPARE_KAIWU_TABU = not SMOKE
+COMPARE_KAIWU_CIM = False
 K_TARGET = 10 if SMOKE else 50
 
 print(f"Kernel Python {sys.version.split()[0]}  (Kaiwu official wheel needs 3.10.x)")
@@ -94,6 +96,17 @@ if COMPARE_KAIWU_TABU:
         feature_names=feature_names,
     )
 
+cim_idx = None
+if COMPARE_KAIWU_CIM:
+    cim_idx = compare_kaiwu_cim_on_same_q(
+        Q,
+        selected_features_qubo,
+        energy,
+        k=K,
+        feature_names=feature_names,
+        reference_label="Ocean tabu",
+    )
+
 k_compare = K
 if not report["accepted"]:
     print(
@@ -106,6 +119,8 @@ selected_idx_lasso, selected_idx_rf = compare_with_lasso_rfr(
 extra = {}
 if kaiwu_idx is not None:
     extra["QUBO Kaiwu tabu"] = kaiwu_idx
+if cim_idx is not None:
+    extra["QUBO Kaiwu CIM"] = cim_idx
 print_regression_mse(
     X, y, selected_idx_qubo, selected_idx_lasso, selected_idx_rf, extra=extra
 )

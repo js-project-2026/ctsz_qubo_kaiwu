@@ -115,6 +115,17 @@ export KAIWU_SDK_CODE=...
 
 Register at [platform.qboson.com](https://platform.qboson.com/) for CIM quota. The PyTorch plugin is an RBM/BM training layer on top of the same Kaiwu samplers; this repo uses those samplers on the feature-selection $Q$ matrix (Ising conversion via `kaiwu.conversion.qubo_matrix_to_ising_matrix`).
 
+### CIM / Ising machine: how to aim for the best Eq. (4) energy
+
+The model itself does **not** change: same $I$, $R$, $Q(\alpha)$, same acceptance (negative energy, $|F^*|\approx k$). What changes is the **solver workflow**:
+
+1. **Keep α-bisection classical.** Photonic CIM is for minimizing a fixed Ising instance. Running every α probe on CIM wastes quota and makes $|F^*|$ noisy. Default when `SOLVER="kaiwu_cim"`: α-search on Ocean `tabu`, then **one** CIM solve on $Q(\alpha^*)$. Force CIM bisect only with `KAIWU_CIM_BISECT=1`.
+2. **Preferred compare path:** `SOLVER="tabu"` (or `kaiwu_tabu`) to lock α*, then `COMPARE_KAIWU_CIM=True` so the **same** $Q$ is submitted once.
+3. **Hardware params (env):** `KAIWU_CIM_SAMPLE_NUMBER` (10–2000, try 32–128), `KAIWU_CIM_PRECISION=8`, `KAIWU_CIM_TRUNCATED_PRECISION=20`, optional `KAIWU_CIM_TARGET_BITS`, `KAIWU_SAVE_DIR` for CheckpointManager.
+4. **Post-process on the exact Q:** CIM + PrecisionReducer return a coarse sample; the code runs greedy 1-bit refine (`QUBO_CIM_LOCAL_REFINE=1`) so reported energy is $F^\top Q F$, not the truncated Ising Hamiltonian.
+5. **Judge success by energy and stem-gene membership**, not Ridge MSE vs LASSO. A good CIM result is sparse, $E<0$, and (v2) still contains MLLT3/HOPX/SPINK2/NPR3. Huge $|F^*|$ or $E\gg 0$ is an engineering/hardware limit at $p=5000$, not a biology fail.
+6. **Do not change Eq. (4) weights “for CIM.”** If dynamic range is harsh, use `KAIWU_ISING_SCALE` / PrecisionReducer — not a different objective.
+
 Do not commit API tokens:
 
 ```bash
