@@ -60,6 +60,9 @@ Notebook: `v2/qubo_v2.ipynb`. Set `QUBO_V2_DATA_DIR` in the setup cell. Same ker
 - Tabu hang near α≈0.2: Ocean ``timeout`` does not bind greedy descent. Use
   `PYTHONUNBUFFERED=1`, `QUBO_TABU_WALLCLOCK_S=120`, optional `QUBO_TABU_NUM_RESTARTS=0`.
   Or `SOLVER="kaiwu_tabu"` / `"sa"` for the α-search.
+- CIM: keep `SOLVER="tabu"`, set `COMPARE_KAIWU_CIM=True` after keys **and CIM quota** are available.
+  Or `SOLVER="kaiwu_cim"` (α-bisect stays classical). Local tabu ≠ photonic CIM.
+  申请文案: [`docs/cim-quota-request.zh.md`](../docs/cim-quota-request.zh.md).
 
 ## Results vs Ranzoni / Cvejic
 

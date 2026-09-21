@@ -32,6 +32,7 @@ Local solvers: D-Wave Ocean `TabuSampler` / `SimulatedAnnealingSampler` (**class
 | `docs/compare-romero-2025.html` | Latest notebook vs paper (English) |
 | `docs/compare-romero-2025.zh.html` | Same report in Chinese, including GSE308682 train/test split |
 | `docs/briefing-qubo-effort.html` | Bilingual progress report: k=50 at 5,000 genes, charts, optional CIM compare |
+| `docs/cim-quota-request.zh.md` | 光子 CIM 真机算力申请文案（可直接提交） |
 | `docs_v2/` | Fetal Smart-seq2 QUBO vs Ranzoni/Cvejic (English + Chinese; charts + CIM/ARES) |
 | `v2/` | Fetal Smart-seq2 QUBO (Ranzoni / Cvejic GitLab). Same solver; see `v2/README.md` |
 | `docs/quantum-ultra-early-markers.html` | Strategy essay (bilingual); §09 is this repo’s gene-panel instance |
@@ -114,6 +115,21 @@ export KAIWU_SDK_CODE=...
 ```
 
 Register at [platform.qboson.com](https://platform.qboson.com/) for CIM quota. The PyTorch plugin is an RBM/BM training layer on top of the same Kaiwu samplers; this repo uses those samplers on the feature-selection $Q$ matrix (Ising conversion via `kaiwu.conversion.qubo_matrix_to_ising_matrix`).
+
+**Hardware application (Chinese, copy-paste ready):** [`docs/cim-quota-request.zh.md`](docs/cim-quota-request.zh.md).  
+Classical Ocean/Kaiwu **tabu is already done** and does **not** replace photonic CIM. Local machines need **no GPU**; the Ising solve itself **must** run on cloud CIM/SPQC (~5–10 true-machine tasks for v1+v2 with repeats).
+
+### CIM / Ising machine: how to aim for the best Eq. (4) energy
+
+The model itself does **not** change: same $I$, $R$, $Q(\alpha)$, same acceptance (negative energy, $|F^*|\approx k$). What changes is the **solver workflow**:
+
+1. **Keep α-bisection classical.** Photonic CIM is for minimizing a fixed Ising instance. Running every α probe on CIM wastes quota and makes $|F^*|$ noisy. Default when `SOLVER="kaiwu_cim"`: α-search on Ocean `tabu`, then **one** CIM solve on $Q(\alpha^*)$. Force CIM bisect only with `KAIWU_CIM_BISECT=1`.
+2. **Preferred compare path:** `SOLVER="tabu"` (or `kaiwu_tabu`) to lock α*, then `COMPARE_KAIWU_CIM=True` so the **same** $Q$ is submitted once **to the photonic machine** (this step consumes CIM quota).
+3. **Hardware params (env):** `KAIWU_CIM_SAMPLE_NUMBER` (10–2000, try 32–128), `KAIWU_CIM_PRECISION=8`, `KAIWU_CIM_TRUNCATED_PRECISION=20`, optional `KAIWU_CIM_TARGET_BITS`, `KAIWU_SAVE_DIR` for CheckpointManager.
+4. **Post-process on the exact Q:** CIM + PrecisionReducer return a coarse sample; the code runs greedy 1-bit refine (`QUBO_CIM_LOCAL_REFINE=1`) so reported energy is $F^\top Q F$, not the truncated Ising Hamiltonian.
+5. **Judge success by energy and stem-gene membership**, not Ridge MSE vs LASSO. A good CIM result is sparse, $E<0$, and (v2) still contains MLLT3/HOPX/SPINK2/NPR3. Huge $|F^*|$ or $E\gg 0$ is an engineering/hardware limit at $p=5000$, not a biology fail.
+6. **Do not change Eq. (4) weights “for CIM.”** If dynamic range is harsh, use `KAIWU_ISING_SCALE` / PrecisionReducer — not a different objective.
+7. **Roles:** local CPU tabu = α + polish only; **cloud CIM = the photonic Ising compare**. “No local GPU” ≠ “no CIM.”
 
 Do not commit API tokens:
 

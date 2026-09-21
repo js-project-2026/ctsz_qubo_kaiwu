@@ -470,11 +470,53 @@ def _sample_to_vec(sample, n):
     return vec
 
 
+def local_refine_binary(Q, x, max_passes=None):
+    """Greedy 1-bit flips on the original QUBO (O(n) per flip via ΔE).
+
+    Use after CIM / PrecisionReducer: hardware returns a coarse sample; polish
+    energy on the exact Eq. (4) matrix before accepting the mask.
+    """
+    Q = np.asarray(Q, dtype=np.float64)
+    Q = 0.5 * (Q + Q.T)
+    x = np.asarray(x, dtype=np.int8).ravel().copy()
+    n = Q.shape[0]
+    if x.size != n:
+        raise ValueError(f"mask length {x.size} != Q n={n}")
+    if max_passes is None:
+        raw = os.environ.get("QUBO_LOCAL_REFINE_PASSES", "").strip()
+        max_passes = int(raw) if raw else 3
+    max_passes = max(0, int(max_passes))
+    if max_passes == 0:
+        return x.astype(int), _energy(Q, x)
+
+    h = Q @ x.astype(np.float64)
+    diag = np.diag(Q)
+    e = float(x.astype(np.float64) @ h)
+    for _ in range(max_passes):
+        improved = False
+        for i in range(n):
+            d = 1.0 - 2.0 * float(x[i])
+            delta = d * (2.0 * h[i] - diag[i])
+            if delta < -1e-12:
+                x[i] = 1 - x[i]
+                h = h + d * Q[:, i]
+                e = e + delta
+                improved = True
+        if not improved:
+            break
+    return x.astype(int), float(e)
+
+
 def _qubo_to_ising_matrix(Q):
     """Convert QUBO Q to the Ising matrix Kaiwu Optimizer.solve expects.
 
     Uses kaiwu.conversion (or kaiwu.qubo) when installed. QUBO linear terms
     become an extra auxiliary spin; decode with _ising_row_to_binary.
+
+    Optional ``KAIWU_ISING_SCALE`` (default 1) multiplies the Ising matrix so
+    couplings sit in a friendlier dynamic range for limited-bit CIM hardware.
+    Energy ranking is unchanged under a positive scale; we still score masks
+    with the original Q after decode.
     """
     Q = np.asarray(Q, dtype=np.float64)
     Q = 0.5 * (Q + Q.T)
@@ -485,14 +527,19 @@ def _qubo_to_ising_matrix(Q):
     conv = getattr(_kaiwu, "conversion", None)
     if conv is not None and hasattr(conv, "qubo_matrix_to_ising_matrix"):
         ising, bias = conv.qubo_matrix_to_ising_matrix(Q)
-        return np.asarray(ising, dtype=np.float64), float(bias)
-    qubo_mod = getattr(_kaiwu, "qubo", None)
-    if qubo_mod is not None and hasattr(qubo_mod, "qubo_matrix_to_ising_matrix"):
-        ising, bias = qubo_mod.qubo_matrix_to_ising_matrix(Q)
-        return np.asarray(ising, dtype=np.float64), float(bias)
-    raise ImportError(
-        "kaiwu.conversion.qubo_matrix_to_ising_matrix is missing; upgrade kaiwu"
-    )
+    else:
+        qubo_mod = getattr(_kaiwu, "qubo", None)
+        if qubo_mod is not None and hasattr(qubo_mod, "qubo_matrix_to_ising_matrix"):
+            ising, bias = qubo_mod.qubo_matrix_to_ising_matrix(Q)
+        else:
+            raise ImportError(
+                "kaiwu.conversion.qubo_matrix_to_ising_matrix is missing; upgrade kaiwu"
+            )
+    ising = np.asarray(ising, dtype=np.float64)
+    scale = float(os.environ.get("KAIWU_ISING_SCALE", "1") or "1")
+    if scale > 0 and abs(scale - 1.0) > 1e-15:
+        ising = ising * scale
+    return ising, float(bias)
 
 
 def _ising_row_to_binary(spins, n_qubo):
@@ -508,7 +555,7 @@ def _ising_row_to_binary(spins, n_qubo):
     return ((s + 1.0) / 2.0).astype(int)
 
 
-def _best_binary_from_ising_samples(samples, Q):
+def _best_binary_from_ising_samples(samples, Q, refine=True):
     n = Q.shape[0]
     rows = np.atleast_2d(np.asarray(samples))
     if rows.size == 0:
@@ -517,7 +564,10 @@ def _best_binary_from_ising_samples(samples, Q):
     best_e = np.inf
     for row in rows:
         x = _ising_row_to_binary(row, n)
-        e = _energy(Q, x)
+        if refine:
+            x, e = local_refine_binary(Q, x)
+        else:
+            e = _energy(Q, x)
         if e < best_e:
             best_e = e
             best_x = x
@@ -548,8 +598,66 @@ def _init_kaiwu_license():
         lic.init(user, code)
 
 
+def _kaiwu_cim_checkpoint_dir():
+    save_dir = os.environ.get("KAIWU_SAVE_DIR", "/tmp/kaiwu_cim")
+    os.makedirs(save_dir, exist_ok=True)
+    common = getattr(_kaiwu, "common", None)
+    if common is not None and hasattr(common, "CheckpointManager"):
+        common.CheckpointManager.save_dir = save_dir
+    return save_dir
+
+
+def _filter_kwargs(callable_obj, kwargs):
+    """Keep only kwargs accepted by ``callable_obj`` (best-effort across SDK versions)."""
+    import inspect
+
+    try:
+        params = inspect.signature(callable_obj).parameters
+    except (TypeError, ValueError):
+        return dict(kwargs)
+    if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        return dict(kwargs)
+    return {k: v for k, v in kwargs.items() if k in params}
+
+
+def _wrap_precision_reducer(opt):
+    """Adapt Ising coeffs to limited-bit CIM via PrecisionReducer when available.
+
+    Env (Kaiwu docs: precision / truncated_precision / target_bits):
+      KAIWU_CIM_PRECISION           default 8
+      KAIWU_CIM_TRUNCATED_PRECISION default 20
+      KAIWU_CIM_TARGET_BITS         optional; omit if unset
+      KAIWU_CIM_ONLY_FEASIBLE       0/1, default 0 (keep best energy even if split soft)
+      KAIWU_CIM_PRECISION_REDUCER   0 to disable wrapping
+    """
+    if os.environ.get("KAIWU_CIM_PRECISION_REDUCER", "1").strip() in {"0", "false", "False"}:
+        return opt
+    reducer_cls = None
+    preprocess = getattr(_kaiwu, "preprocess", None)
+    if preprocess is not None and hasattr(preprocess, "PrecisionReducer"):
+        reducer_cls = preprocess.PrecisionReducer
+    elif hasattr(_kaiwu.cim, "PrecisionReducer"):
+        reducer_cls = _kaiwu.cim.PrecisionReducer
+    if reducer_cls is None:
+        return opt
+    kwargs = {
+        "precision": int(os.environ.get("KAIWU_CIM_PRECISION", "8")),
+        "truncated_precision": int(
+            os.environ.get("KAIWU_CIM_TRUNCATED_PRECISION", "20")
+        ),
+        "only_feasible_solution": os.environ.get(
+            "KAIWU_CIM_ONLY_FEASIBLE", "0"
+        ).strip()
+        in {"1", "true", "True"},
+    }
+    bits = os.environ.get("KAIWU_CIM_TARGET_BITS", "").strip()
+    if bits:
+        kwargs["target_bits"] = int(bits)
+    return reducer_cls(opt, **_filter_kwargs(reducer_cls, kwargs))
+
+
 def _kaiwu_optimizer(kind, num_reads, seed):
-    if kind in {"kaiwu_sa", "kaiwu_tabu"}:
+    if kind in {"kaiwu_sa", "kaiwu_tabu", "kaiwu_cim"}:
         _init_kaiwu_license()
     if kind == "kaiwu_sa":
         return _kaiwu.classical.SimulatedAnnealingOptimizer(
@@ -569,21 +677,45 @@ def _kaiwu_optimizer(kind, num_reads, seed):
                 "kaiwu_cim needs KAIWU_USER_ID and KAIWU_SDK_CODE "
                 "(from https://platform.qboson.com/)"
             )
-        opt = _kaiwu.cim.CIMOptimizer(
-            user_id=user,
-            sdk_code=code,
-            task_name=os.environ.get("KAIWU_TASK_NAME", "qubo_feature_selection"),
-            wait=True,
+        save_dir = _kaiwu_cim_checkpoint_dir()
+        sample_number = int(
+            os.environ.get("KAIWU_CIM_SAMPLE_NUMBER", str(max(10, int(num_reads))))
         )
-        reducer = getattr(_kaiwu.cim, "PrecisionReducer", None)
-        if reducer is not None:
-            opt = reducer(
-                opt,
-                precision=8,
-                truncated_precision=10,
-                only_feasible_solution=False,
-            )
-        return opt
+        sample_number = max(10, min(2000, sample_number))
+        task_mode = os.environ.get("KAIWU_CIM_TASK_MODE", "optimization").strip()
+        task_name = os.environ.get("KAIWU_TASK_NAME", "qubo_feature_selection")
+        # Unique suffix per α* submit avoids silently reusing a stale cache entry
+        # when only α changes but the env task name is fixed. Override with
+        # KAIWU_TASK_NAME_STRICT=1 to keep the exact name (resume cached job).
+        if os.environ.get("KAIWU_TASK_NAME_STRICT", "").strip() not in {
+            "1",
+            "true",
+            "True",
+        }:
+            task_name = f"{task_name}_n{num_reads}"
+        kwargs = {
+            "user_id": user,
+            "sdk_code": code,
+            "task_name": task_name,
+            "wait": True,
+            "interval": int(os.environ.get("KAIWU_CIM_INTERVAL", "1")),
+            "sample_number": sample_number,
+            "task_mode": task_mode,
+        }
+        project_no = os.environ.get("KAIWU_PROJECT_NO", "").strip()
+        if project_no:
+            kwargs["project_no"] = project_no
+        opt = _kaiwu.cim.CIMOptimizer(
+            **_filter_kwargs(_kaiwu.cim.CIMOptimizer, kwargs)
+        )
+        print(
+            f"Kaiwu CIMOptimizer: task_name={getattr(opt, 'task_name', task_name)!r} "
+            f"sample_number={sample_number} mode={task_mode} "
+            f"save_dir={save_dir} precision_reducer="
+            f"{os.environ.get('KAIWU_CIM_PRECISION_REDUCER', '1')}",
+            flush=True,
+        )
+        return _wrap_precision_reducer(opt)
     raise ValueError(f"Unknown Kaiwu solver {kind!r}")
 
 
@@ -595,12 +727,44 @@ def _solve_kaiwu(Q, kind, num_reads, seed):
         )
     ising, _bias = _qubo_to_ising_matrix(Q)
     worker = _kaiwu_optimizer(kind, num_reads=num_reads, seed=seed)
-    samples = worker.solve(ising)
+    solve_kwargs = {
+        "negtail_flip": True,
+        "sort_solutions": True,
+    }
+    solve_fn = worker.solve
+    try:
+        samples = solve_fn(ising, **_filter_kwargs(solve_fn, solve_kwargs))
+    except TypeError:
+        samples = solve_fn(ising)
     if samples is None:
         raise RuntimeError(
             "Kaiwu CIM returned None (task still running). Use wait=True / poll."
         )
-    return _best_binary_from_ising_samples(samples, Q)
+    refine = kind == "kaiwu_cim" and os.environ.get(
+        "QUBO_CIM_LOCAL_REFINE", "1"
+    ).strip() not in {"0", "false", "False"}
+    return _best_binary_from_ising_samples(samples, Q, refine=refine)
+
+
+def default_alpha_solver_for(final_solver):
+    """Classical solver for α-bisection when the final backend is cloud CIM.
+
+    Submitting every α probe to CIM wastes quota and injects hardware noise into
+    the cardinality search. Prefer Ocean/Kaiwu tabu for α*, then one CIM solve.
+    Override with ``alpha_solver=...`` or ``KAIWU_CIM_BISECT=1`` (bisect on CIM).
+    """
+    final_solver = (final_solver or "").lower()
+    if final_solver not in {"kaiwu_cim", "cim", "kaiwu"}:
+        return final_solver
+    if os.environ.get("KAIWU_CIM_BISECT", "").strip() in {"1", "true", "True"}:
+        return "kaiwu_cim"
+    if HAS_TABU:
+        return "tabu"
+    if HAS_KAIWU:
+        return "kaiwu_tabu"
+    if HAS_DWAVE:
+        return "sa"
+    return "custom_sa"
 
 
 def available_solvers():
@@ -672,7 +836,11 @@ def solve_qubo(
     Kaiwu / QBoson:
       ``kaiwu_sa`` / ``kaiwu_tabu`` — classical local CPU; no CIM key.
         Enterprise SDK may still want a one-time local license file.
-      ``kaiwu_cim`` — photonic CIM (KAIWU_USER_ID + KAIWU_SDK_CODE)
+      ``kaiwu_cim`` — photonic CIM (KAIWU_USER_ID + KAIWU_SDK_CODE).
+        Recommended workflow: classical α-bisection then one CIM solve on Q(α*)
+        via ``solve_qubo_target_k(..., solver=\"kaiwu_cim\")``. Tune
+        ``KAIWU_CIM_SAMPLE_NUMBER``, ``KAIWU_CIM_PRECISION``, and
+        ``QUBO_CIM_LOCAL_REFINE``.
 
     ``custom_sa`` — bit-flip SA in this file (also starts at all zeros).
     """
@@ -748,6 +916,7 @@ def solve_qubo_target_k(
     solver=None,
     timeout_ms=None,
     bisect_reads=2,
+    alpha_solver=None,
 ):
     """Bisect α ∈ [0, 1] so the unconstrained solution has about k ones.
 
@@ -757,13 +926,27 @@ def solve_qubo_target_k(
     Logs every probe (α, |F*|, energy). ``best_alpha`` is the probe with
     smallest |n_sel−k|, not the last tqdm midpoint.
 
+    When ``solver=\"kaiwu_cim\"``, α-bisection defaults to classical tabu
+    (``alpha_solver`` / ``default_alpha_solver_for``) and only the final Q(α*)
+    is submitted to the photonic CIM — fewer cloud jobs, less noisy |F*|.
+
     Returns
     -------
     vec, energy, alpha, Q, report
         ``report`` is the dict from ``diagnose_qubo_solution``.
     """
     k = int(k)
-    solver = solver or _default_solver()
+    aliases = {"cim": "kaiwu_cim", "kaiwu": "kaiwu_cim", "dwave_sa": "sa", "ocean_tabu": "tabu"}
+    solver = aliases.get((solver or _default_solver()).lower(), (solver or _default_solver()).lower())
+    if alpha_solver is None:
+        alpha_solver = default_alpha_solver_for(solver)
+    else:
+        alpha_solver = aliases.get(alpha_solver.lower(), alpha_solver.lower())
+    if alpha_solver != solver:
+        print(
+            f"  hybrid α-search: alpha_solver={alpha_solver} → final_solver={solver}",
+            flush=True,
+        )
     lo, hi = 0.0, 1.0
     best_vec = None
     best_alpha = 0.5
@@ -780,7 +963,7 @@ def solve_qubo_target_k(
             k,
             num_reads=probe_reads,
             seed=seed,
-            solver=solver,
+            solver=alpha_solver,
             timeout_ms=timeout_ms,
         )
         bar.set_postfix(
@@ -788,7 +971,7 @@ def solve_qubo_target_k(
         )
         print(
             f"  α-bisect {step + 1}/{n_bisect}: α={mid:.6f}  |F*|={n_sel}  "
-            f"energy={energy:.4f}  |n-k|={abs(n_sel - k)}",
+            f"energy={energy:.4f}  |n-k|={abs(n_sel - k)}  [{alpha_solver}]",
             flush=True,
         )
         diff = abs(n_sel - k)
@@ -807,19 +990,28 @@ def solve_qubo_target_k(
     print(f"  kept best_alpha={best_alpha:.6f} (|n-k|={best_diff}, E={best_energy:.4f})", flush=True)
     Q = build_qubo_matrix(I, R, alpha=best_alpha, k=k)
     print(
-        f"  final tabu refine at α* with num_reads={num_reads} "
-        f"(bisection used {probe_reads} reads/probe)",
+        f"  final {solver} refine at α* with num_reads={num_reads} "
+        f"(bisection used {probe_reads} reads/probe on {alpha_solver})",
         flush=True,
     )
     vec, energy = solve_qubo(
         Q, num_reads=num_reads, seed=seed, solver=solver, timeout_ms=timeout_ms
     )
-    if abs(int(vec.sum()) - k) < abs(int(best_vec.sum()) - k) or (
+    best_on_q = _energy(Q, best_vec)
+    # Prefer closer |F*| to k; break ties on lower exact QUBO energy.
+    take_final = abs(int(vec.sum()) - k) < abs(int(best_vec.sum()) - k) or (
         abs(int(vec.sum()) - k) == abs(int(best_vec.sum()) - k)
-        and energy <= _energy(Q, best_vec)
-    ):
+        and energy <= best_on_q
+    )
+    if take_final:
         chosen, chosen_e = vec, energy
     else:
-        chosen, chosen_e = best_vec, _energy(Q, best_vec)
+        chosen, chosen_e = best_vec, best_on_q
+        if alpha_solver != solver:
+            print(
+                f"  kept classical α* mask (|F*|={int(best_vec.sum())}, E={chosen_e:.4f}) "
+                f"over {solver} (|F*|={int(vec.sum())}, E={energy:.4f})",
+                flush=True,
+            )
     report = diagnose_qubo_solution(Q, chosen, energy=chosen_e, k=k)
     return chosen, chosen_e, best_alpha, Q, report

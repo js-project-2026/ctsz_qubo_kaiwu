@@ -259,3 +259,61 @@ def compare_kaiwu_tabu_on_same_q(
     if not report["accepted"]:
         print("Kaiwu tabu did not pass energy/cardinality acceptance.")
     return idx
+
+
+def compare_kaiwu_cim_on_same_q(
+    Q,
+    reference_vec,
+    reference_energy,
+    k,
+    feature_names=None,
+    num_reads=None,
+    seed=0,
+    reference_label="reference",
+):
+    """Solve the same Q once on Kaiwu photonic CIM (needs platform keys).
+
+    Best practice: keep the Q from classical α* (tabu), then compare energy and
+    membership here — do not re-bisect α on the QPU. Returns selected indices,
+    or None if credentials / SDK / hardware path fail.
+    """
+    from qubo_model import HAS_KAIWU, diagnose_qubo_solution, solve_qubo
+
+    print("\n=== Same Q on Kaiwu CIM (photonic Ising) ===")
+    if not HAS_KAIWU:
+        print(
+            "Skip: kaiwu SDK not installed. "
+            "pip install kaiwu==1.3.1  (Python 3.10). "
+            "CIM also needs KAIWU_USER_ID + KAIWU_SDK_CODE."
+        )
+        return None
+    if num_reads is None:
+        num_reads = int(os.environ.get("KAIWU_CIM_SAMPLE_NUMBER", "32"))
+    print(
+        f"Kaiwu CIMOptimizer on n={Q.shape[0]}  num_reads/sample_number≈{num_reads}  "
+        f"(PrecisionReducer + local 1-bit refine on by default)"
+    )
+    try:
+        vec, energy = solve_qubo(
+            Q, num_reads=num_reads, seed=seed, solver="kaiwu_cim"
+        )
+    except Exception as exc:
+        print(f"Skip Kaiwu CIM: {type(exc).__name__}: {exc}")
+        return None
+    report = diagnose_qubo_solution(Q, vec, energy=energy, k=k)
+    idx = np.where(np.asarray(vec) == 1)[0]
+    rset = set(map(int, np.where(np.asarray(reference_vec) == 1)[0]))
+    cset = set(map(int, idx))
+    print(
+        f"{reference_label}:  |F*|={len(rset)}  energy={float(reference_energy):.4f}"
+    )
+    print(f"Kaiwu CIM:         |F*|={len(cset)}  energy={float(energy):.4f}")
+    print(f"Overlap {reference_label}∩CIM={len(rset & cset)}/{k}")
+    if feature_names is not None:
+        print("Kaiwu CIM genes:", [feature_names[i] for i in sorted(idx)])
+    if not report["accepted"]:
+        print(
+            "Kaiwu CIM did not pass energy/cardinality acceptance "
+            "(engineering/hardware constraint at this scale, not a biology fail)."
+        )
+    return idx

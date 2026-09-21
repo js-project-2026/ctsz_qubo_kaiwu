@@ -277,11 +277,16 @@
     <ul>
       <li>
         <strong>同一 Q，n=5,000。</strong>需要 <code>KAIWU_USER_ID</code> /
-        <code>KAIWU_SDK_CODE</code>。经典 Kaiwu tabu 已完成。
+        <code>KAIWU_SDK_CODE</code> 与 <strong>CIM 真机配额</strong>。经典 Kaiwu tabu 已完成，
+        <strong>不能替代</strong>光子依辛机对照。
+        推荐：经典 α* 后设 <code>COMPARE_KAIWU_CIM=True</code>（或
+        <code>SOLVER=kaiwu_cim</code>，α 二分仍走 tabu）。
+        申请文案见 <a href="../docs/cim-quota-request.zh.md"><code>docs/cim-quota-request.zh.md</code></a>。
       </li>
       <li>
         <strong>成功标准不是“找回 k=50”。</strong>Tabu 已经做到。CIM 是硬件对照：
         能量对比 −0.7813，|F*| 落在 50 的容差内，与 Ocean/Kaiwu tabu 的重叠。
+        上机后对精确 Q 做 1-bit 精修再比能量。
       </li>
       <li>
         <strong>成员抖动会大于 v1。</strong>v1 Ocean∩Kaiwu 为 48/50；此处 31/50。

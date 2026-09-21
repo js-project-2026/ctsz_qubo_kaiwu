@@ -285,11 +285,16 @@
     <ul>
       <li>
         <strong>Same Q, n=5,000.</strong> Needs <code>KAIWU_USER_ID</code> /
-        <code>KAIWU_SDK_CODE</code>. Classical Kaiwu tabu is already done.
+        <code>KAIWU_SDK_CODE</code> and <strong>CIM true-machine quota</strong>.
+        Classical Kaiwu tabu is already done and does <strong>not</strong> replace the photonic compare.
+        Preferred: lock α* classically, then <code>COMPARE_KAIWU_CIM=True</code>
+        (or <code>SOLVER=kaiwu_cim</code>; α-bisect still uses tabu).
+        Application text (ZH): <a href="../docs/cim-quota-request.zh.md"><code>docs/cim-quota-request.zh.md</code></a>.
       </li>
       <li>
         <strong>Success is not “find k=50.”</strong> Tabu already did. CIM is a hardware
         compare: energy vs −0.7813, |F*| within tol of 50, overlap with Ocean/Kaiwu tabu.
+        After the QPU, polish with 1-bit refine on the exact Q before comparing energy.
       </li>
       <li>
         <strong>Expect more membership jitter than v1.</strong> v1 Ocean∩Kaiwu was 48/50;

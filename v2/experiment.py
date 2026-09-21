@@ -33,6 +33,7 @@ _load_parent("data_loader", "data_loader.py")
 _parent_exp = _load_parent("qubo_experiment", "qubo_experiment.py")
 
 compare_kaiwu_tabu_on_same_q = _parent_exp.compare_kaiwu_tabu_on_same_q
+compare_kaiwu_cim_on_same_q = _parent_exp.compare_kaiwu_cim_on_same_q
 compare_with_lasso_rfr = _parent_exp.compare_with_lasso_rfr
 print_regression_mse = _parent_exp.print_regression_mse
 target_cardinality = _parent_exp.target_cardinality

@@ -32,6 +32,7 @@ from qubo_model import (
 )
 import qubo_model as _qubo_model
 from qubo_experiment import (
+    compare_kaiwu_cim_on_same_q,
     compare_kaiwu_tabu_on_same_q,
     compare_with_lasso_rfr,
     load_experiment,
@@ -43,12 +44,15 @@ from qubo_experiment import (
 # Solvers: tabu | sa | leap | custom_sa | kaiwu_sa | kaiwu_tabu | kaiwu_cim
 # leap needs DWAVE_API_TOKEN. kaiwu_cim needs KAIWU_USER_ID + KAIWU_SDK_CODE.
 # kaiwu_tabu is local CPU and does not need a CIM key.
+# Recommended CIM path: SOLVER="tabu" + COMPARE_KAIWU_CIM=True (same Q),
+# or SOLVER="kaiwu_cim" (α-bisect stays on classical tabu by default).
 # tabu timeout: QUBO_TABU_TIMEOUT_MS (ms/read). Ocean's 20 ms default is not used.
 USE_REAL_DATA = True
 N_TOP_GENES = 5000
 TARGET_MODE = "pseudotime"
 SOLVER = "tabu"
 COMPARE_KAIWU_TABU = True
+COMPARE_KAIWU_CIM = False
 
 require_python_310()
 print(f"Kernel Python {sys.version.split()[0]}  (Kaiwu official wheel needs 3.10.x)")
@@ -88,6 +92,17 @@ if COMPARE_KAIWU_TABU:
         feature_names=feature_names,
     )
 
+cim_idx = None
+if COMPARE_KAIWU_CIM:
+    cim_idx = compare_kaiwu_cim_on_same_q(
+        Q,
+        selected_features_qubo,
+        energy,
+        k=K,
+        feature_names=feature_names,
+        reference_label="Ocean tabu",
+    )
+
 k_compare = K
 if not report["accepted"]:
     print(
@@ -101,6 +116,8 @@ selected_idx_lasso, selected_idx_rf = compare_with_lasso_rfr(
 extra = {}
 if kaiwu_idx is not None:
     extra["QUBO Kaiwu tabu"] = kaiwu_idx
+if cim_idx is not None:
+    extra["QUBO Kaiwu CIM"] = cim_idx
 print_regression_mse(
     X, y, selected_idx_qubo, selected_idx_lasso, selected_idx_rf, extra=extra
 )
