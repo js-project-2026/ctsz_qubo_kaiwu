@@ -28,7 +28,7 @@ from paths import data_dir as resolve_data_dir
 GENE_EXPRESSION = "Gene Expression"
 DEFAULT_CRISPR_TARGETS = ("RUNX1", "MYB", "TCF3", "LMO2", "LDB1", "FLI1", "GATA2")
 # Paper real-data pools were ~5,000 and ~9,661 processed genes.
-DEFAULT_N_TOP_GENES = 5000
+DEFAULT_N_TOP_GENES = 2500
 
 
 def load_scrna_qubo_data(

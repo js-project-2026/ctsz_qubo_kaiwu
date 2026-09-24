@@ -48,7 +48,8 @@ from qubo_experiment import (
 # or SOLVER="kaiwu_cim" (α-bisect stays on classical tabu by default).
 # tabu timeout: QUBO_TABU_TIMEOUT_MS (ms/read). Ocean's 20 ms default is not used.
 USE_REAL_DATA = True
-N_TOP_GENES = 5000
+# 2500 HVGs stays under a 3000-spin CIM quota (aux spin + precision-split headroom).
+N_TOP_GENES = 2500
 TARGET_MODE = "pseudotime"
 SOLVER = "tabu"
 COMPARE_KAIWU_TABU = True

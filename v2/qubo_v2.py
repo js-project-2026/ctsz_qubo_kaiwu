@@ -39,7 +39,7 @@ from experiment import (
 # SMOKE=True: subsample cells/genes for a fast check. False: full 5k-HVG benchmark.
 SMOKE = False
 USE_REAL_DATA = True
-N_TOP_GENES = 80 if SMOKE else 5000
+N_TOP_GENES = 80 if SMOKE else 2500  # 2500: under a 3000-spin CIM quota
 N_CELLS = 200 if SMOKE else None
 TRANSFORM = "log"          # log | pearson
 TARGET_MODE = "paga_dpt"   # paga_dpt | dpt | gene

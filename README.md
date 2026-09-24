@@ -88,7 +88,7 @@ Set `QUBO_DATA_DIR` (above), then edit the flags at the top of `qubo.ipynb` / `q
 
 ```python
 USE_REAL_DATA = True
-N_TOP_GENES = 5000
+N_TOP_GENES = 2500
 TARGET_MODE = "pseudotime"
 SOLVER = "tabu"  # see solver table below
 ```

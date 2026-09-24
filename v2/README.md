@@ -32,9 +32,9 @@ export QUBO_V2_DATA_DIR=/path/to/integrative-scrna-scatac-human-foetal
 | --- | --- | --- |
 | Flag | `SMOKE = True` | `SMOKE = False` (default) |
 | Cells | 200 subsample | all PAGA hematopoietic cells (~4,463) |
-| Genes | 80 HVGs | 5,000 HVGs |
+| Genes | 80 HVGs | 2,500 HVGs |
 | k | 10 | 50 |
-| MI / tabu | seconds | minutes (pairwise MI at p=5000) |
+| MI / tabu | seconds | minutes (pairwise MI at p=2500) |
 
 Smoke still uses the **real h5ad**, just a cell/gene subset. It is not synthetic data.
 
