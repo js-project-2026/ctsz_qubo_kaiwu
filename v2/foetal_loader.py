@@ -60,7 +60,7 @@ def compute_pearson_residual(matrix, theta=100):
     clip = np.sqrt(matrix.shape[1])
     return np.clip(residuals, -clip, clip)
 
-DEFAULT_N_TOP_GENES = 5000
+DEFAULT_N_TOP_GENES = 2500
 HSC_CLUSTER = "HSC-MPPs"
 DEFAULT_ROOT_GENE = "MLLT3"
 EXCLUDE_CLUSTERS = {"Endothelial"}
