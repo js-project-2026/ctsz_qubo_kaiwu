@@ -491,20 +491,126 @@ def local_refine_binary(Q, x, max_passes=None):
 
     h = Q @ x.astype(np.float64)
     diag = np.diag(Q)
-    e = float(x.astype(np.float64) @ h)
     for _ in range(max_passes):
         improved = False
         for i in range(n):
-            d = 1.0 - 2.0 * float(x[i])
-            delta = d * (2.0 * h[i] - diag[i])
+            # E = xᵀQx, Q symmetric. d = +1 turns bit i on, d = −1 turns it off.
+            # ΔE = d * (Q_ii + 2 * sum_{j≠i} Q_ij x_j). The previous formula used
+            # 2h − Q_ii, which flips the sign of a negative diagonal and refuses
+            # to leave the all-zero mask.
+            xi = float(x[i])
+            coupled = h[i] - diag[i] * xi
+            d = 1.0 - 2.0 * xi
+            delta = d * (diag[i] + 2.0 * coupled)
             if delta < -1e-12:
                 x[i] = 1 - x[i]
                 h = h + d * Q[:, i]
-                e = e + delta
                 improved = True
         if not improved:
             break
-    return x.astype(int), float(e)
+    x = x.astype(int)
+    return x, _energy(Q, x)
+
+
+def _ising_fields(Q):
+    """Local fields and couplings of the standard QUBO→Ising map.
+
+    J_ij = Q_ij/4, h_i = Q_ii/2 + sum_{k≠i} Q_ik/2 (Q symmetric).
+    """
+    Q = 0.5 * (np.asarray(Q, dtype=np.float64) + np.asarray(Q, dtype=np.float64).T)
+    off = Q.copy()
+    np.fill_diagonal(off, 0.0)
+    h = 0.5 * np.diag(Q) + 0.5 * off.sum(axis=1)
+    return h, off / 4.0
+
+
+def compress_qubo_for_cim(Q, bits=8, min_negative_fields=1):
+    """Drop weak couplings so an 8-bit Ising still has a selection signal.
+
+    On a dense redundancy matrix the Ising field h_i is the row sum. That sum
+    is thousands of tiny positive terms, so signed-8-bit quantization keeps the
+    sum and rounds every J_ij and the −αI correction to 0. The hardware optimum
+    is then the empty mask. Raising a threshold until the quantized fields go
+    negative again keeps every coupling the integer grid can still see, which is
+    the densest 8-bit-feasible version of this Q. The returned matrix is what
+    gets uploaded; masks are still scored on the original Q.
+    """
+    Q = 0.5 * (np.asarray(Q, dtype=np.float64) + np.asarray(Q, dtype=np.float64).T)
+    n = Q.shape[0]
+    limit = float(2 ** (int(bits) - 1) - 1)
+    diag = np.diag(Q).copy()
+    off0 = Q.copy()
+    np.fill_diagonal(off0, 0.0)
+    iu = np.triu_indices(n, 1)
+    mag = np.abs(off0[iu])
+    info = {
+        "tau": 0.0,
+        "edges_total": int(np.count_nonzero(mag)),
+        "edges_kept": int(np.count_nonzero(mag)),
+        "negative_fields": 0,
+        "quantized_edges": 0,
+        "bits": int(bits),
+    }
+
+    def _at(tau):
+        off = off0 if tau <= 0 else np.where(np.abs(off0) >= tau, off0, 0.0)
+        h = 0.5 * diag + 0.5 * np.asarray(off).sum(axis=1)
+        j_max = float(np.max(np.abs(off))) / 4.0 if np.any(off) else 0.0
+        peak = max(float(np.max(np.abs(h))), j_max)
+        if peak <= 0:
+            return 0, 0, off
+        scale = limit / peak
+        neg = int(np.sum(np.rint(h * scale) < 0))
+        kept_j = int(np.count_nonzero(np.rint(off[iu] / 4.0 * scale)))
+        return neg, kept_j, off
+
+    neg0, edges0, _ = _at(0.0)
+    info["negative_fields"] = neg0
+    info["quantized_edges"] = edges0
+    if mag.size == 0 or not np.any(mag > 0) or (
+        neg0 >= int(min_negative_fields) and edges0 > 0
+    ):
+        return Q, info
+
+    lo = 0.0
+    hi = float(mag.max())
+    best = None
+    for _ in range(48):
+        mid = 0.5 * (lo + hi)
+        neg, kept_j, off = _at(mid)
+        if neg >= int(min_negative_fields):
+            best = (mid, neg, kept_j, off)
+            hi = mid
+        else:
+            lo = mid
+    if best is None:
+        neg, kept_j, off = _at(hi)
+        best = (hi, neg, kept_j, off)
+    tau, neg, kept_j, off = best
+    Qk = np.array(off, dtype=np.float64, copy=True)
+    np.fill_diagonal(Qk, diag)
+    info.update(
+        {
+            "tau": float(tau),
+            "edges_kept": int(np.count_nonzero(np.abs(off[iu]))),
+            "negative_fields": int(neg),
+            "quantized_edges": int(kept_j),
+        }
+    )
+    return Qk, info
+
+
+def quantize_ising_matrix(ising, bits=8):
+    """Round an Ising matrix onto the signed integer grid [-limit, limit]."""
+    limit = float(2 ** (int(bits) - 1) - 1)
+    mat = np.asarray(ising, dtype=np.float64).copy()
+    peak = float(np.max(np.abs(mat))) if mat.size else 0.0
+    if not np.isfinite(peak) or peak <= 0:
+        return mat
+    mat = np.rint(mat / peak * limit)
+    # s_i^2 = 1, so a diagonal entry is a constant and does not change the minimizer.
+    np.fill_diagonal(mat, 0.0)
+    return mat
 
 
 def _qubo_to_ising_matrix(Q):
@@ -562,15 +668,35 @@ def _best_binary_from_ising_samples(samples, Q, refine=True):
         raise RuntimeError("Kaiwu solver returned no samples")
     best_x = None
     best_e = np.inf
+    raw_x = None
+    raw_e = np.inf
     for row in rows:
-        x = _ising_row_to_binary(row, n)
+        x0 = _ising_row_to_binary(row, n)
+        e0 = _energy(Q, x0)
+        if e0 < raw_e:
+            raw_e = e0
+            raw_x = x0
         if refine:
-            x, e = local_refine_binary(Q, x)
+            x, e = local_refine_binary(Q, x0)
         else:
-            e = _energy(Q, x)
+            x, e = x0, e0
         if e < best_e:
             best_e = e
             best_x = x
+    raw_n = int(np.asarray(raw_x).sum()) if raw_x is not None else 0
+    out_n = int(np.asarray(best_x).sum()) if best_x is not None else 0
+    print(
+        f"CIM decode on exact Q: raw |F*|={raw_n} E={raw_e:.4f}  "
+        f"after 1-bit refine |F*|={out_n} E={best_e:.4f}",
+        flush=True,
+    )
+    if raw_n == 0:
+        print(
+            "Hardware sample decoded to the empty mask (8-bit fields had no "
+            "negative selection signal). Refine from that point is classical "
+            "greedy on the exact Q, not a photonic ground state.",
+            flush=True,
+        )
     return best_x, float(best_e)
 
 
@@ -656,7 +782,7 @@ def _wrap_precision_reducer(opt):
     return reducer_cls(opt, **_filter_kwargs(reducer_cls, kwargs))
 
 
-def _kaiwu_optimizer(kind, num_reads, seed):
+def _kaiwu_optimizer(kind, num_reads, seed, name_suffix="", use_reducer=None):
     if kind in {"kaiwu_sa", "kaiwu_tabu", "kaiwu_cim"}:
         _init_kaiwu_license()
     if kind == "kaiwu_sa":
@@ -692,7 +818,7 @@ def _kaiwu_optimizer(kind, num_reads, seed):
             "true",
             "True",
         }:
-            task_name = f"{task_name}_n{num_reads}"
+            task_name = f"{task_name}_n{num_reads}{name_suffix}"
         kwargs = {
             "user_id": user,
             "sdk_code": code,
@@ -708,13 +834,20 @@ def _kaiwu_optimizer(kind, num_reads, seed):
         opt = _kaiwu.cim.CIMOptimizer(
             **_filter_kwargs(_kaiwu.cim.CIMOptimizer, kwargs)
         )
+        reducer_on = (
+            os.environ.get("KAIWU_CIM_PRECISION_REDUCER", "1").strip()
+            not in {"0", "false", "False"}
+            if use_reducer is None
+            else bool(use_reducer)
+        )
         print(
             f"Kaiwu CIMOptimizer: task_name={getattr(opt, 'task_name', task_name)!r} "
             f"sample_number={sample_number} mode={task_mode} "
-            f"save_dir={save_dir} precision_reducer="
-            f"{os.environ.get('KAIWU_CIM_PRECISION_REDUCER', '1')}",
+            f"save_dir={save_dir} precision_reducer={int(reducer_on)}",
             flush=True,
         )
+        if not reducer_on:
+            return opt
         return _wrap_precision_reducer(opt)
     raise ValueError(f"Unknown Kaiwu solver {kind!r}")
 
@@ -725,8 +858,46 @@ def _solve_kaiwu(Q, kind, num_reads, seed):
             "Install Kaiwu: pip install kaiwu==1.3.1 "
             "and optionally git+https://github.com/qboson/kaiwu-pytorch-plugin.git"
         )
-    ising, _bias = _qubo_to_ising_matrix(Q)
-    worker = _kaiwu_optimizer(kind, num_reads=num_reads, seed=seed)
+    Q_hw = Q
+    name_suffix = ""
+    use_reducer = None
+    if kind == "kaiwu_cim" and os.environ.get("KAIWU_CIM_RANGE_FIT", "1").strip() not in {
+        "0",
+        "false",
+        "False",
+    }:
+        bits = int(os.environ.get("KAIWU_CIM_PRECISION", "8"))
+        min_neg = int(os.environ.get("KAIWU_CIM_MIN_NEG_FIELDS", "1") or "1")
+        Q_hw, fit = compress_qubo_for_cim(Q, bits=bits, min_negative_fields=min_neg)
+        print(
+            "CIM 8-bit range fit: "
+            f"tau={fit['tau']:.6g}  edges {fit['edges_kept']}/{fit['edges_total']}  "
+            f"quantized negative fields={fit['negative_fields']}  "
+            f"quantized couplings={fit['quantized_edges']}",
+            flush=True,
+        )
+        name_suffix = f"_fit{bits}"
+        # The uploaded matrix is already on the signed integer grid. Leave
+        # PrecisionReducer off unless the user explicitly asked for it; its
+        # default split expands a dense 2500-spin Ising to tens of thousands.
+        if "KAIWU_CIM_PRECISION_REDUCER" not in os.environ:
+            use_reducer = False
+    ising, _bias = _qubo_to_ising_matrix(Q_hw)
+    if name_suffix:
+        ising = quantize_ising_matrix(ising, bits=bits)
+        nz = int(np.count_nonzero(ising))
+        print(
+            f"CIM Ising upload: shape={ising.shape} nonzero={nz} "
+            f"range=[{ising.min():.0f}, {ising.max():.0f}]",
+            flush=True,
+        )
+    worker = _kaiwu_optimizer(
+        kind,
+        num_reads=num_reads,
+        seed=seed,
+        name_suffix=name_suffix,
+        use_reducer=use_reducer,
+    )
     solve_kwargs = {
         "negtail_flip": True,
         "sort_solutions": True,

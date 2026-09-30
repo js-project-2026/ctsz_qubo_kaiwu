@@ -125,10 +125,10 @@ The model itself does **not** change: same $I$, $R$, $Q(\alpha)$, same acceptanc
 
 1. **Keep α-bisection classical.** Photonic CIM is for minimizing a fixed Ising instance. Running every α probe on CIM wastes quota and makes $|F^*|$ noisy. Default when `SOLVER="kaiwu_cim"`: α-search on Ocean `tabu`, then **one** CIM solve on $Q(\alpha^*)$. Force CIM bisect only with `KAIWU_CIM_BISECT=1`.
 2. **Preferred compare path:** `SOLVER="tabu"` (or `kaiwu_tabu`) to lock α*, then `COMPARE_KAIWU_CIM=True` so the **same** $Q$ is submitted once **to the photonic machine** (this step consumes CIM quota).
-3. **Hardware params (env):** `KAIWU_CIM_SAMPLE_NUMBER` (10–2000, try 32–128), `KAIWU_CIM_PRECISION=8`, `KAIWU_CIM_TRUNCATED_PRECISION=20`, optional `KAIWU_CIM_TARGET_BITS`, `KAIWU_SAVE_DIR` for CheckpointManager.
-4. **Post-process on the exact Q:** CIM + PrecisionReducer return a coarse sample; the code runs greedy 1-bit refine (`QUBO_CIM_LOCAL_REFINE=1`) so reported energy is $F^\top Q F$, not the truncated Ising Hamiltonian.
+3. **Hardware params (env):** `KAIWU_CIM_SAMPLE_NUMBER` (10–2000, try 32–128), `KAIWU_CIM_PRECISION=8`, `KAIWU_CIM_RANGE_FIT=1` (default). Range fit drops couplings an 8-bit Ising cannot represent, then uploads that integer matrix. The task name gains a `_fit8` suffix so a previous empty-mask job is not reused. Set `KAIWU_CIM_RANGE_FIT=0` to upload the dense float matrix. `PrecisionReducer` stays off unless `KAIWU_CIM_PRECISION_REDUCER=1`; on a dense 2,500-spin Q its variable split asks for a ~77k matrix.
+4. **Post-process on the exact Q:** after decode, greedy 1-bit refine (`QUBO_CIM_LOCAL_REFINE=1`) reports $F^\top Q F$ on the original matrix. The log prints the raw hardware mask and the refined mask separately. An empty hardware mask is an 8-bit failure; refine from that point is classical greedy, not a CIM ground state.
 5. **Judge success by energy and stem-gene membership**, not Ridge MSE vs LASSO. A good CIM result is sparse, $E<0$, and (v2) still contains MLLT3/HOPX/SPINK2/NPR3. Huge $|F^*|$ or $E\gg 0$ is an engineering/hardware limit at $p=5000$, not a biology fail.
-6. **Do not change Eq. (4) weights “for CIM.”** If dynamic range is harsh, use `KAIWU_ISING_SCALE` / PrecisionReducer — not a different objective.
+6. **Do not retune Eq. (4) to chase the hardware.** Range fit only removes couplings that signed 8-bit rounding would turn into 0, and it rebuilds the local fields without those terms so the row-sum no longer erases $-\alpha I$. Uniform rescaling (`KAIWU_ISING_SCALE`) does not fix that ratio.
 7. **Roles:** local CPU tabu = α + polish only; **cloud CIM = the photonic Ising compare**. “No local GPU” ≠ “no CIM.”
 
 Do not commit API tokens:
