@@ -484,14 +484,17 @@ def local_refine_binary(Q, x, max_passes=None):
         raise ValueError(f"mask length {x.size} != Q n={n}")
     if max_passes is None:
         raw = os.environ.get("QUBO_LOCAL_REFINE_PASSES", "").strip()
-        max_passes = int(raw) if raw else 3
+        # A short cap stops while turn-offs still lower the exact energy.
+        max_passes = int(raw) if raw else 64
     max_passes = max(0, int(max_passes))
     if max_passes == 0:
         return x.astype(int), _energy(Q, x)
 
     h = Q @ x.astype(np.float64)
     diag = np.diag(Q)
-    for _ in range(max_passes):
+    used = 0
+    stopped_early = False
+    for used in range(1, max_passes + 1):
         improved = False
         for i in range(n):
             # E = xᵀQx, Q symmetric. d = +1 turns bit i on, d = −1 turns it off.
@@ -508,7 +511,17 @@ def local_refine_binary(Q, x, max_passes=None):
                 improved = True
         if not improved:
             break
+    else:
+        stopped_early = True
     x = x.astype(int)
+    local_refine_binary.last_passes = used
+    local_refine_binary.converged = not stopped_early
+    if stopped_early:
+        print(
+            f"1-bit refine hit pass cap {max_passes} while moves still lower E. "
+            "Raise QUBO_LOCAL_REFINE_PASSES.",
+            flush=True,
+        )
     return x, _energy(Q, x)
 
 
@@ -524,20 +537,52 @@ def _ising_fields(Q):
     return h, off / 4.0
 
 
-def compress_qubo_for_cim(Q, bits=8, min_negative_fields=1):
-    """Drop weak couplings so an 8-bit Ising still has a selection signal.
+def ising_matrix_from_qubo(Q):
+    """(n+1) Ising matrix: couplings in the leading block, fields on the aux spin.
 
-    On a dense redundancy matrix the Ising field h_i is the row sum. That sum
-    is thousands of tiny positive terms, so signed-8-bit quantization keeps the
-    sum and rounds every J_ij and the −αI correction to 0. The hardware optimum
-    is then the empty mask. Raising a threshold until the quantized fields go
-    negative again keeps every coupling the integer grid can still see, which is
-    the densest 8-bit-feasible version of this Q. The returned matrix is what
-    gets uploaded; masks are still scored on the original Q.
+    Same layout `_ising_row_to_binary` decodes (auxiliary spin last). J_ij = Q_ij/4,
+    h_i = Q_ii/2 + sum_{k≠i} Q_ik/2.
     """
     Q = 0.5 * (np.asarray(Q, dtype=np.float64) + np.asarray(Q, dtype=np.float64).T)
     n = Q.shape[0]
-    limit = float(2 ** (int(bits) - 1) - 1)
+    off = Q.copy()
+    np.fill_diagonal(off, 0.0)
+    h = 0.5 * np.diag(Q) + 0.5 * off.sum(axis=1)
+    ising = np.zeros((n + 1, n + 1), dtype=np.float64)
+    ising[:n, :n] = off / 4.0
+    ising[:n, n] = h
+    ising[n, :n] = h
+    return ising
+
+
+def quantized_ising_signal(ising, n_qubo, bits=8):
+    """Negative aux-spin fields and surviving data-block couplings after int rounding."""
+    q = quantize_ising_matrix(ising, bits=bits)
+    n = int(n_qubo)
+    if q.shape[0] == n + 1:
+        fields = q[:n, n]
+        block = q[:n, :n]
+    else:
+        fields = q[:-1, -1]
+        block = q[:-1, :-1]
+    neg = int(np.sum(np.asarray(fields) < 0))
+    nz = int(np.count_nonzero(np.triu(np.asarray(block), 1)))
+    return neg, nz
+
+
+def compress_qubo_for_cim(Q, bits=8, min_negative_fields=1, to_ising=None):
+    """Drop weak couplings so the uploaded 8-bit Ising still has a selection signal.
+
+    The threshold is scored on ``to_ising(Q)`` after the same integer rounding
+    used for upload. A candidate must keep at least ``min_negative_fields``
+    negative auxiliary-spin entries and at least one data-block coupling.
+    ``to_ising`` defaults to :func:`ising_matrix_from_qubo`; the CIM path passes
+    Kaiwu's converter so the score matches the matrix that is actually sent.
+    Masks are still scored on the original Q.
+    """
+    Q = 0.5 * (np.asarray(Q, dtype=np.float64) + np.asarray(Q, dtype=np.float64).T)
+    n = Q.shape[0]
+    converter = to_ising or ising_matrix_from_qubo
     diag = np.diag(Q).copy()
     off0 = Q.copy()
     np.fill_diagonal(off0, 0.0)
@@ -552,24 +597,20 @@ def compress_qubo_for_cim(Q, bits=8, min_negative_fields=1):
         "bits": int(bits),
     }
 
-    def _at(tau):
+    def _measure(tau):
         off = off0 if tau <= 0 else np.where(np.abs(off0) >= tau, off0, 0.0)
-        h = 0.5 * diag + 0.5 * np.asarray(off).sum(axis=1)
-        j_max = float(np.max(np.abs(off))) / 4.0 if np.any(off) else 0.0
-        peak = max(float(np.max(np.abs(h))), j_max)
-        if peak <= 0:
-            return 0, 0, off
-        scale = limit / peak
-        neg = int(np.sum(np.rint(h * scale) < 0))
-        kept_j = int(np.count_nonzero(np.rint(off[iu] / 4.0 * scale)))
-        return neg, kept_j, off
+        trial = np.array(off, dtype=np.float64, copy=True)
+        np.fill_diagonal(trial, diag)
+        neg, nz = quantized_ising_signal(converter(trial), n, bits=bits)
+        return neg, nz, off
 
-    neg0, edges0, _ = _at(0.0)
+    def _ok(neg, nz):
+        return neg >= int(min_negative_fields) and nz >= 1
+
+    neg0, edges0, _ = _measure(0.0)
     info["negative_fields"] = neg0
     info["quantized_edges"] = edges0
-    if mag.size == 0 or not np.any(mag > 0) or (
-        neg0 >= int(min_negative_fields) and edges0 > 0
-    ):
+    if mag.size == 0 or not np.any(mag > 0) or _ok(neg0, edges0):
         return Q, info
 
     lo = 0.0
@@ -577,16 +618,16 @@ def compress_qubo_for_cim(Q, bits=8, min_negative_fields=1):
     best = None
     for _ in range(48):
         mid = 0.5 * (lo + hi)
-        neg, kept_j, off = _at(mid)
-        if neg >= int(min_negative_fields):
-            best = (mid, neg, kept_j, off)
+        neg, nz, off = _measure(mid)
+        if _ok(neg, nz):
+            best = (mid, neg, nz, off)
             hi = mid
         else:
             lo = mid
     if best is None:
-        neg, kept_j, off = _at(hi)
-        best = (hi, neg, kept_j, off)
-    tau, neg, kept_j, off = best
+        neg, nz, off = _measure(hi)
+        best = (hi, neg, nz, off)
+    tau, neg, nz, off = best
     Qk = np.array(off, dtype=np.float64, copy=True)
     np.fill_diagonal(Qk, diag)
     info.update(
@@ -594,7 +635,7 @@ def compress_qubo_for_cim(Q, bits=8, min_negative_fields=1):
             "tau": float(tau),
             "edges_kept": int(np.count_nonzero(np.abs(off[iu]))),
             "negative_fields": int(neg),
-            "quantized_edges": int(kept_j),
+            "quantized_edges": int(nz),
         }
     )
     return Qk, info
@@ -661,39 +702,88 @@ def _ising_row_to_binary(spins, n_qubo):
     return ((s + 1.0) / 2.0).astype(int)
 
 
+LAST_CIM_SPLIT = None
+
+
+def split_cim_masks(raw, refined):
+    """Index sets that separate a hardware mask from its 1-bit polish.
+
+    ``kept`` were on in the hardware sample and stayed on. ``added`` were
+    introduced by refine. ``removed`` were on the hardware sample and turned off.
+    """
+    raw = np.asarray(raw, dtype=int).ravel()
+    refined = np.asarray(refined, dtype=int).ravel()
+    raw_on = set(map(int, np.where(raw == 1)[0]))
+    ref_on = set(map(int, np.where(refined == 1)[0]))
+    return {
+        "hardware": sorted(raw_on),
+        "kept": sorted(raw_on & ref_on),
+        "added": sorted(ref_on - raw_on),
+        "removed": sorted(raw_on - ref_on),
+    }
+
+
 def _best_binary_from_ising_samples(samples, Q, refine=True):
+    global LAST_CIM_SPLIT
     n = Q.shape[0]
     rows = np.atleast_2d(np.asarray(samples))
     if rows.size == 0:
         raise RuntimeError("Kaiwu solver returned no samples")
     best_x = None
     best_e = np.inf
-    raw_x = None
-    raw_e = np.inf
+    best_raw = None
+    best_raw_e = np.inf
+    best_passes = 0
+    best_converged = True
     for row in rows:
         x0 = _ising_row_to_binary(row, n)
         e0 = _energy(Q, x0)
-        if e0 < raw_e:
-            raw_e = e0
-            raw_x = x0
         if refine:
             x, e = local_refine_binary(Q, x0)
+            passes = int(getattr(local_refine_binary, "last_passes", 0))
+            converged = bool(getattr(local_refine_binary, "converged", True))
         else:
             x, e = x0, e0
+            passes, converged = 0, True
         if e < best_e:
             best_e = e
             best_x = x
-    raw_n = int(np.asarray(raw_x).sum()) if raw_x is not None else 0
+            best_raw = x0
+            best_raw_e = e0
+            best_passes = passes
+            best_converged = converged
+    raw_n = int(np.asarray(best_raw).sum()) if best_raw is not None else 0
     out_n = int(np.asarray(best_x).sum()) if best_x is not None else 0
+    split = split_cim_masks(best_raw, best_x)
+    passes = best_passes
+    converged = best_converged
+    LAST_CIM_SPLIT = {
+        "hardware": split["hardware"],
+        "kept": split["kept"],
+        "added": split["added"],
+        "removed": split["removed"],
+        "raw_energy": float(best_raw_e),
+        "refined_energy": float(best_e),
+        "passes": int(passes),
+        "converged": bool(converged),
+    }
     print(
-        f"CIM decode on exact Q: raw |F*|={raw_n} E={raw_e:.4f}  "
-        f"after 1-bit refine |F*|={out_n} E={best_e:.4f}",
+        f"CIM decode on exact Q: raw |F*|={raw_n} E={best_raw_e:.4f}  "
+        f"after 1-bit refine |F*|={out_n} E={best_e:.4f}  "
+        f"passes={passes} converged={converged}",
+        flush=True,
+    )
+    print(
+        "CIM mask split: "
+        f"from hardware={len(split['kept'])}  "
+        f"added by refine={len(split['added'])}  "
+        f"removed by refine={len(split['removed'])}",
         flush=True,
     )
     if raw_n == 0:
         print(
             "Hardware sample decoded to the empty mask (8-bit fields had no "
-            "negative selection signal). Refine from that point is classical "
+            "negative selection signal). Genes added by refine are classical "
             "greedy on the exact Q, not a photonic ground state.",
             flush=True,
         )
@@ -868,7 +958,17 @@ def _solve_kaiwu(Q, kind, num_reads, seed):
     }:
         bits = int(os.environ.get("KAIWU_CIM_PRECISION", "8"))
         min_neg = int(os.environ.get("KAIWU_CIM_MIN_NEG_FIELDS", "1") or "1")
-        Q_hw, fit = compress_qubo_for_cim(Q, bits=bits, min_negative_fields=min_neg)
+
+        def _kaiwu_ising(matrix):
+            converted, _bias = _qubo_to_ising_matrix(matrix)
+            return converted
+
+        Q_hw, fit = compress_qubo_for_cim(
+            Q,
+            bits=bits,
+            min_negative_fields=min_neg,
+            to_ising=_kaiwu_ising,
+        )
         print(
             "CIM 8-bit range fit: "
             f"tau={fit['tau']:.6g}  edges {fit['edges_kept']}/{fit['edges_total']}  "
@@ -886,9 +986,11 @@ def _solve_kaiwu(Q, kind, num_reads, seed):
     if name_suffix:
         ising = quantize_ising_matrix(ising, bits=bits)
         nz = int(np.count_nonzero(ising))
+        neg_up, coup_up = quantized_ising_signal(ising, Q.shape[0], bits=bits)
         print(
             f"CIM Ising upload: shape={ising.shape} nonzero={nz} "
-            f"range=[{ising.min():.0f}, {ising.max():.0f}]",
+            f"range=[{ising.min():.0f}, {ising.max():.0f}]  "
+            f"negative aux fields={neg_up} quantized couplings={coup_up}",
             flush=True,
         )
     worker = _kaiwu_optimizer(
