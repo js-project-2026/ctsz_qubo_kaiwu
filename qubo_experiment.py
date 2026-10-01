@@ -261,6 +261,28 @@ def compare_kaiwu_tabu_on_same_q(
     return idx
 
 
+def _label_genes(idxs, feature_names):
+    if feature_names is None:
+        return [int(i) for i in idxs]
+    return [feature_names[i] for i in idxs]
+
+
+def _print_cim_gene_split(feature_names, refined_idx):
+    """Name the hardware mask separately from genes the 1-bit polish added or dropped."""
+    import qubo_model
+
+    split = qubo_model.LAST_CIM_SPLIT
+    final = _label_genes(sorted(int(i) for i in refined_idx), feature_names)
+    if not split:
+        print("Kaiwu CIM genes:", final)
+        return
+    print("CIM hardware genes:", _label_genes(split["hardware"], feature_names))
+    print("CIM genes kept from hardware:", _label_genes(split["kept"], feature_names))
+    print("CIM genes added by refine:", _label_genes(split["added"], feature_names))
+    print("CIM genes removed by refine:", _label_genes(split["removed"], feature_names))
+    print("Kaiwu CIM genes:", final)
+
+
 def compare_kaiwu_cim_on_same_q(
     Q,
     reference_vec,
@@ -291,7 +313,7 @@ def compare_kaiwu_cim_on_same_q(
         num_reads = int(os.environ.get("KAIWU_CIM_SAMPLE_NUMBER", "32"))
     print(
         f"Kaiwu CIMOptimizer on n={Q.shape[0]}  num_reads/sample_number≈{num_reads}  "
-        f"(PrecisionReducer + local 1-bit refine on by default)"
+        f"(8-bit range fit + 1-bit refine on the exact Q)"
     )
     try:
         vec, energy = solve_qubo(
@@ -309,8 +331,7 @@ def compare_kaiwu_cim_on_same_q(
     )
     print(f"Kaiwu CIM:         |F*|={len(cset)}  energy={float(energy):.4f}")
     print(f"Overlap {reference_label}∩CIM={len(rset & cset)}/{k}")
-    if feature_names is not None:
-        print("Kaiwu CIM genes:", [feature_names[i] for i in sorted(idx)])
+    _print_cim_gene_split(feature_names, idx)
     if not report["accepted"]:
         print(
             "Kaiwu CIM did not pass energy/cardinality acceptance "
