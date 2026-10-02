@@ -133,6 +133,36 @@ def test_range_fit_scores_the_ising_matrix_it_will_upload():
     assert neg >= 1 and nz >= 1
 
 
+def test_range_fit_rejects_a_single_surviving_coupling():
+    """tau=0 with one quantized edge must lose to a cut that keeps more edges."""
+    rng = np.random.default_rng(3)
+    n = 30
+    noise = np.abs(rng.normal(size=(n, n)))
+    R = np.exp(-noise) * 0.25
+    R = 0.5 * (R + R.T)
+    np.fill_diagonal(R, 0.0)
+    I = rng.random(n) * 0.35
+    Q = (1 - 0.3125) * R / 49.0 - 0.3125 * np.diag(I)
+    Q = 0.5 * (Q + Q.T)
+
+    def to_ising_shrink(matrix):
+        ising = ising_matrix_from_qubo(matrix)
+        ising[:n, :n] *= 0.15
+        return ising
+
+    dense_neg, dense_nz = quantized_ising_signal(to_ising_shrink(Q), n, bits=8)
+    Qk, info = compress_qubo_for_cim(
+        Q, bits=8, min_negative_fields=1, to_ising=to_ising_shrink
+    )
+    assert info["quantized_edges_at_zero"] == dense_nz
+    assert info["quantized_edges"] > dense_nz
+    assert info["quantized_edges"] > 1
+    assert info["negative_fields"] >= 1
+    assert info["tau"] > 0
+    neg, nz = quantized_ising_signal(to_ising_shrink(Qk), n, bits=8)
+    assert (neg, nz) == (info["negative_fields"], info["quantized_edges"])
+
+
 def test_quantize_ising_stays_inside_signed_8bit():
     mat = np.array([[0.0, 0.2, -3.0], [0.2, 0.0, 0.01], [-3.0, 0.01, 0.0]])
     out = quantize_ising_matrix(mat, bits=8)
