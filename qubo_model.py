@@ -571,13 +571,15 @@ def quantized_ising_signal(ising, n_qubo, bits=8):
 
 
 def compress_qubo_for_cim(Q, bits=8, min_negative_fields=1, to_ising=None):
-    """Drop weak couplings so the uploaded 8-bit Ising still has a selection signal.
+    """Drop weak couplings so the uploaded 8-bit Ising keeps a selection signal.
 
     The threshold is scored on ``to_ising(Q)`` after the same integer rounding
-    used for upload. A candidate must keep at least ``min_negative_fields``
-    negative auxiliary-spin entries and at least one data-block coupling.
-    ``to_ising`` defaults to :func:`ising_matrix_from_qubo`; the CIM path passes
-    Kaiwu's converter so the score matches the matrix that is actually sent.
+    used for upload. Among cuts that leave at least ``min_negative_fields``
+    negative auxiliary-spin entries, the cut that keeps the most data-block
+    couplings is used. One surviving coupling is not enough: on the dense
+    fetal Q that rule accepted ``tau=0`` and the hardware returned the empty
+    mask. ``to_ising`` defaults to :func:`ising_matrix_from_qubo`; the CIM
+    path passes Kaiwu's converter so the score matches the uploaded matrix.
     Masks are still scored on the original Q.
     """
     Q = 0.5 * (np.asarray(Q, dtype=np.float64) + np.asarray(Q, dtype=np.float64).T)
@@ -588,12 +590,14 @@ def compress_qubo_for_cim(Q, bits=8, min_negative_fields=1, to_ising=None):
     np.fill_diagonal(off0, 0.0)
     iu = np.triu_indices(n, 1)
     mag = np.abs(off0[iu])
+    positive = mag[mag > 0]
     info = {
         "tau": 0.0,
-        "edges_total": int(np.count_nonzero(mag)),
-        "edges_kept": int(np.count_nonzero(mag)),
+        "edges_total": int(positive.size),
+        "edges_kept": int(positive.size),
         "negative_fields": 0,
         "quantized_edges": 0,
+        "quantized_edges_at_zero": 0,
         "bits": int(bits),
     }
 
@@ -604,30 +608,48 @@ def compress_qubo_for_cim(Q, bits=8, min_negative_fields=1, to_ising=None):
         neg, nz = quantized_ising_signal(converter(trial), n, bits=bits)
         return neg, nz, off
 
-    def _ok(neg, nz):
+    def _eligible(neg, nz):
         return neg >= int(min_negative_fields) and nz >= 1
 
-    neg0, edges0, _ = _measure(0.0)
-    info["negative_fields"] = neg0
-    info["quantized_edges"] = edges0
-    if mag.size == 0 or not np.any(mag > 0) or _ok(neg0, edges0):
+    if positive.size == 0:
+        neg0, nz0, _ = _measure(0.0)
+        info["negative_fields"] = neg0
+        info["quantized_edges"] = nz0
+        info["quantized_edges_at_zero"] = nz0
         return Q, info
 
-    lo = 0.0
-    hi = float(mag.max())
+    candidates = np.unique(
+        np.concatenate(([0.0], np.quantile(positive, np.linspace(0.0, 1.0, 21))))
+    )
     best = None
-    for _ in range(48):
-        mid = 0.5 * (lo + hi)
-        neg, nz, off = _measure(mid)
-        if _ok(neg, nz):
-            best = (mid, neg, nz, off)
-            hi = mid
-        else:
-            lo = mid
+    for tau in candidates:
+        neg, nz, off = _measure(float(tau))
+        if float(tau) == 0.0:
+            info["quantized_edges_at_zero"] = int(nz)
+        if not _eligible(neg, nz):
+            continue
+        rank = (int(nz), int(neg), -float(tau))
+        if best is None or rank > best[0]:
+            best = (rank, float(tau), int(neg), int(nz), off)
+    if best is not None:
+        idx = int(np.where(candidates == best[1])[0][0])
+        lo = float(candidates[max(0, idx - 1)])
+        hi = float(candidates[min(len(candidates) - 1, idx + 1)])
+        for tau in np.linspace(lo, hi, 8):
+            neg, nz, off = _measure(float(tau))
+            if not _eligible(neg, nz):
+                continue
+            rank = (int(nz), int(neg), -float(tau))
+            if rank > best[0]:
+                best = (rank, float(tau), int(neg), int(nz), off)
     if best is None:
-        neg, nz, off = _measure(hi)
-        best = (hi, neg, nz, off)
-    tau, neg, nz, off = best
+        neg, nz, off = _measure(float(positive.max()))
+        best = ((int(nz), int(neg), -float(positive.max())), float(positive.max()), int(neg), int(nz), off)
+    _rank, tau, neg, nz, off = best
+    if tau <= 0:
+        info["negative_fields"] = int(neg)
+        info["quantized_edges"] = int(nz)
+        return Q, info
     Qk = np.array(off, dtype=np.float64, copy=True)
     np.fill_diagonal(Qk, diag)
     info.update(
@@ -973,9 +995,16 @@ def _solve_kaiwu(Q, kind, num_reads, seed):
             "CIM 8-bit range fit: "
             f"tau={fit['tau']:.6g}  edges {fit['edges_kept']}/{fit['edges_total']}  "
             f"quantized negative fields={fit['negative_fields']}  "
-            f"quantized couplings={fit['quantized_edges']}",
+            f"quantized couplings={fit['quantized_edges']}  "
+            f"(tau=0 would keep {fit['quantized_edges_at_zero']} couplings)",
             flush=True,
         )
+        if fit["quantized_edges"] <= 1:
+            print(
+                "CIM 8-bit range fit kept almost no data couplings. "
+                "Do not treat a later non-empty mask as a hardware result.",
+                flush=True,
+            )
         name_suffix = f"_fit{bits}"
         # The uploaded matrix is already on the signed integer grid. Leave
         # PrecisionReducer off unless the user explicitly asked for it; its
