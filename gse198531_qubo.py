@@ -48,6 +48,8 @@ N_BINS = 6
 K_TARGET = 50
 SOLVER = "tabu"
 COMPARE_KAIWU_TABU = False
+COMPARE_GA = True
+COMPARE_MQLIB = True
 
 _RMB = re.compile(r"RMB\d+", re.IGNORECASE)
 _MT = re.compile(r"^mt-", re.IGNORECASE)
@@ -236,12 +238,30 @@ def main():
     print(f"α*={alpha:.4f}, energy={energy:.4f}, |F*|={len(selected_idx)}")
     print("QUBO selected genes:", [feature_names[i] for i in selected_idx])
 
+    extra = {}
     if COMPARE_KAIWU_TABU:
         from qubo_experiment import compare_kaiwu_tabu_on_same_q
 
-        compare_kaiwu_tabu_on_same_q(
+        kaiwu_idx = compare_kaiwu_tabu_on_same_q(
             Q, selected, energy, k=k, feature_names=feature_names
         )
+        if kaiwu_idx is not None:
+            extra["QUBO Kaiwu tabu"] = kaiwu_idx
+    if COMPARE_GA:
+        from qubo_experiment import compare_ga_on_same_q
+
+        ga_idx = compare_ga_on_same_q(
+            Q, selected, energy, k=k, feature_names=feature_names
+        )
+        extra["QUBO genetic"] = ga_idx
+    if COMPARE_MQLIB:
+        from qubo_experiment import compare_mqlib_on_same_q
+
+        mqlib_idx = compare_mqlib_on_same_q(
+            Q, selected, energy, k=k, feature_names=feature_names
+        )
+        if mqlib_idx is not None:
+            extra["QUBO MQLib"] = mqlib_idx
 
     lasso_idx, rf_idx = compare_with_lasso_rfr(
         X,
@@ -252,7 +272,7 @@ def main():
         K=k,
         feature_names=feature_names,
     )
-    print_regression_mse(X, y, selected_idx, lasso_idx, rf_idx)
+    print_regression_mse(X, y, selected_idx, lasso_idx, rf_idx, extra=extra)
     if not report["accepted"]:
         print("QUBO did not pass energy/cardinality acceptance.")
 

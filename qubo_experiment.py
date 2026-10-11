@@ -211,6 +211,69 @@ def print_regression_mse(
     )
 
 
+def compare_mqlib_on_same_q(
+    Q,
+    reference_vec,
+    reference_energy,
+    k,
+    feature_names=None,
+    num_reads=8,
+    seed=0,
+    reference_label="Ocean tabu",
+):
+    """Solve the same Q with MQLib's MERZ2004 memetic algorithm."""
+    from qubo_model import diagnose_qubo_solution, solve_qubo
+
+    heuristic = os.environ.get("QUBO_MQLIB_HEURISTIC", "").strip() or "MERZ2004"
+    print(f"\n=== Ocean tabu vs MQLib {heuristic} (same Q) ===")
+    try:
+        vec, energy = solve_qubo(Q, num_reads=num_reads, seed=seed, solver="mqlib")
+    except (FileNotFoundError, RuntimeError) as exc:
+        print(f"Skip MQLib: {exc}")
+        return None
+    report = diagnose_qubo_solution(Q, vec, energy=energy, k=k)
+    idx = np.where(np.asarray(vec) == 1)[0]
+    rset = set(map(int, np.where(np.asarray(reference_vec) == 1)[0]))
+    mset = set(map(int, idx))
+    print(f"{reference_label}:  |F*|={len(rset)}  energy={float(reference_energy):.4f}")
+    print(f"MQLib {heuristic}:  |F*|={len(mset)}  energy={float(energy):.4f}")
+    print(f"Overlap {reference_label}∩MQLib={len(rset & mset)}/{k}")
+    if feature_names is not None:
+        print("MQLib genes:", [feature_names[i] for i in sorted(idx)])
+    if not report["accepted"]:
+        print("MQLib did not pass energy/cardinality acceptance.")
+    return idx
+
+
+def compare_ga_on_same_q(
+    Q,
+    reference_vec,
+    reference_energy,
+    k,
+    feature_names=None,
+    num_reads=8,
+    seed=0,
+    reference_label="Ocean tabu",
+):
+    """Solve the same Q with the memetic genetic algorithm."""
+    from qubo_model import diagnose_qubo_solution, solve_qubo
+
+    print("\n=== Ocean tabu vs memetic GA (same Q) ===")
+    vec, energy = solve_qubo(Q, num_reads=num_reads, seed=seed, solver="ga")
+    report = diagnose_qubo_solution(Q, vec, energy=energy, k=k)
+    idx = np.where(np.asarray(vec) == 1)[0]
+    rset = set(map(int, np.where(np.asarray(reference_vec) == 1)[0]))
+    gset = set(map(int, idx))
+    print(f"{reference_label}:  |F*|={len(rset)}  energy={float(reference_energy):.4f}")
+    print(f"Genetic:           |F*|={len(gset)}  energy={float(energy):.4f}")
+    print(f"Overlap {reference_label}∩GA={len(rset & gset)}/{k}")
+    if feature_names is not None:
+        print("Genetic genes:", [feature_names[i] for i in sorted(idx)])
+    if not report["accepted"]:
+        print("Genetic search did not pass energy/cardinality acceptance.")
+    return idx
+
+
 def compare_kaiwu_tabu_on_same_q(
     Q,
     ocean_vec,
