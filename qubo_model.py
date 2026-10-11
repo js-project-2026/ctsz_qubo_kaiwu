@@ -1076,6 +1076,11 @@ def available_solvers():
         "sa": {"installed": HAS_DWAVE, "kind": "classical", "stack": "dwave-ocean-sdk"},
         "leap": {"installed": HAS_DWAVE, "kind": "quantum-hybrid", "stack": "dwave-ocean-sdk"},
         "custom_sa": {"installed": True, "kind": "classical", "stack": "this repo"},
+        "ga": {
+            "installed": True,
+            "kind": "classical",
+            "stack": "memetic GA in this repo (Merz/Katayama style)",
+        },
         "kaiwu_sa": {"installed": HAS_KAIWU, "kind": "classical", "stack": "kaiwu SDK"},
         "kaiwu_tabu": {"installed": HAS_KAIWU, "kind": "classical", "stack": "kaiwu SDK"},
         "kaiwu_cim": {
@@ -1093,6 +1098,7 @@ def solver_banner(solver=None):
         "sa": "D-Wave Ocean SimulatedAnnealingSampler (classical, local)",
         "leap": "D-Wave LeapHybridSampler (quantum-classical hybrid; DWAVE_API_TOKEN)",
         "custom_sa": "Built-in bit-flip simulated annealing (classical)",
+        "ga": "Memetic genetic algorithm (uniform crossover, bit-flip mutation, 1-bit hill climb)",
         "kaiwu_sa": "Kaiwu SimulatedAnnealingOptimizer (classical CPU; no CIM key)",
         "kaiwu_tabu": "Kaiwu TabuSearchOptimizer (classical CPU; no CIM key)",
         "kaiwu_cim": "Kaiwu CIMOptimizer (QBoson photonic CIM; KAIWU_USER_ID + KAIWU_SDK_CODE)",
@@ -1114,6 +1120,76 @@ def _default_solver():
     if HAS_KAIWU:
         return "kaiwu_sa"
     return "custom_sa"
+
+
+def _env_int(name, default):
+    raw = os.environ.get(name, "").strip()
+    return int(raw) if raw else int(default)
+
+
+def solve_genetic_qubo(Q, num_reads=8, seed=0):
+    """Memetic genetic algorithm for an unconstrained binary QUBO.
+
+    Population, uniform crossover, and bit-flip mutation follow the standard
+    binary GA. Each generation hill-climbs the current best with
+    ``local_refine_binary``. That combination, not a bare GA, is the variant
+    that is compared with tabu and simulated annealing in the QUBO literature
+    (Merz and Katayama). There is no single maintained package at the level of
+    Ocean ``TabuSampler``.
+
+    ``QUBO_GA_POPULATION`` (default 16), ``QUBO_GA_GENERATIONS`` (default
+    ``2 * num_reads``), and ``QUBO_GA_LOCAL_PASSES`` (default 3) set the budget.
+    """
+    Q = np.asarray(Q, dtype=np.float64)
+    Q = 0.5 * (Q + Q.T)
+    n = Q.shape[0]
+    rng = np.random.default_rng(0 if seed is None else seed)
+    pop = max(4, _env_int("QUBO_GA_POPULATION", 16))
+    generations = max(1, _env_int("QUBO_GA_GENERATIONS", max(10, 2 * int(num_reads))))
+    local_passes = max(0, _env_int("QUBO_GA_LOCAL_PASSES", 3))
+    elite = min(2, pop)
+    mutation = 1.0 / max(n, 1)
+
+    population = np.zeros((pop, n), dtype=np.int8)
+    if pop > 1:
+        population[1:] = (rng.random((pop - 1, n)) < 0.5).astype(np.int8)
+    energy = np.sum(population * (population @ Q), axis=1)
+
+    for _ in range(generations):
+        order = np.argsort(energy)
+        population = population[order]
+        energy = energy[order]
+        if local_passes:
+            refined, refined_e = local_refine_binary(
+                Q, population[0], max_passes=local_passes
+            )
+            if refined_e < energy[0]:
+                population[0] = refined.astype(np.int8)
+                energy[0] = refined_e
+        children = np.empty_like(population)
+        children[:elite] = population[:elite]
+        pool = max(elite, pop // 2)
+        for i in range(elite, pop):
+            parent_a = population[int(rng.integers(0, pool))]
+            parent_b = population[int(rng.integers(0, pop))]
+            take_a = rng.random(n) < 0.5
+            child = np.where(take_a, parent_a, parent_b).astype(np.int8)
+            flip = rng.random(n) < mutation
+            child[flip] = 1 - child[flip]
+            children[i] = child
+        population = children
+        energy = np.sum(population * (population @ Q), axis=1)
+
+    best_i = int(np.argmin(energy))
+    best, best_e = local_refine_binary(
+        Q, population[best_i], max_passes=max(local_passes, 1)
+    )
+    print(
+        f"Genetic memetic: n={n} pop={pop} generations={generations} "
+        f"local_passes={local_passes} energy={best_e:.4f} |F*|={int(best.sum())}",
+        flush=True,
+    )
+    return best.astype(int), float(best_e)
 
 
 def solve_qubo(
@@ -1145,9 +1221,18 @@ def solve_qubo(
         ``QUBO_CIM_LOCAL_REFINE``.
 
     ``custom_sa`` — bit-flip SA in this file (also starts at all zeros).
+
+    ``ga`` — memetic genetic algorithm in this file. Same Q as tabu and SA.
     """
     solver = (solver or _default_solver()).lower()
-    aliases = {"cim": "kaiwu_cim", "kaiwu": "kaiwu_cim", "dwave_sa": "sa", "ocean_tabu": "tabu"}
+    aliases = {
+        "cim": "kaiwu_cim",
+        "kaiwu": "kaiwu_cim",
+        "dwave_sa": "sa",
+        "ocean_tabu": "tabu",
+        "genetic": "ga",
+        "memetic": "ga",
+    }
     solver = aliases.get(solver, solver)
     n = Q.shape[0]
     num_reads = max(1, int(num_reads))
@@ -1171,6 +1256,9 @@ def solve_qubo(
             raise ImportError("TabuSampler requires dwave-ocean-sdk / dwave-samplers")
         to_ms = tabu_timeout_ms(n, timeout_ms)
         return _solve_tabu(Q, num_reads=num_reads, seed=seed, to_ms=to_ms)
+
+    if solver == "ga":
+        return solve_genetic_qubo(Q, num_reads=num_reads, seed=seed)
 
     if solver == "sa":
         if not HAS_DWAVE:
@@ -1238,7 +1326,14 @@ def solve_qubo_target_k(
         ``report`` is the dict from ``diagnose_qubo_solution``.
     """
     k = int(k)
-    aliases = {"cim": "kaiwu_cim", "kaiwu": "kaiwu_cim", "dwave_sa": "sa", "ocean_tabu": "tabu"}
+    aliases = {
+        "cim": "kaiwu_cim",
+        "kaiwu": "kaiwu_cim",
+        "dwave_sa": "sa",
+        "ocean_tabu": "tabu",
+        "genetic": "ga",
+        "memetic": "ga",
+    }
     solver = aliases.get((solver or _default_solver()).lower(), (solver or _default_solver()).lower())
     if alpha_solver is None:
         alpha_solver = default_alpha_solver_for(solver)
