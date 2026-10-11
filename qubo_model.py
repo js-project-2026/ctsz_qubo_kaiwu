@@ -1056,6 +1056,12 @@ def default_alpha_solver_for(final_solver):
     Override with ``alpha_solver=...`` or ``KAIWU_CIM_BISECT=1`` (bisect on CIM).
     """
     final_solver = (final_solver or "").lower()
+    if final_solver == "mqlib":
+        if HAS_TABU:
+            return "tabu"
+        if HAS_DWAVE:
+            return "sa"
+        return "custom_sa"
     if final_solver not in {"kaiwu_cim", "cim", "kaiwu"}:
         return final_solver
     if os.environ.get("KAIWU_CIM_BISECT", "").strip() in {"1", "true", "True"}:
@@ -1081,6 +1087,11 @@ def available_solvers():
             "kind": "classical",
             "stack": "memetic GA in this repo (Merz/Katayama style)",
         },
+        "mqlib": {
+            "installed": True,
+            "kind": "classical",
+            "stack": "MQLib MERZ2004 (needs QUBO_MQLIB=bin/MQLib)",
+        },
         "kaiwu_sa": {"installed": HAS_KAIWU, "kind": "classical", "stack": "kaiwu SDK"},
         "kaiwu_tabu": {"installed": HAS_KAIWU, "kind": "classical", "stack": "kaiwu SDK"},
         "kaiwu_cim": {
@@ -1099,6 +1110,7 @@ def solver_banner(solver=None):
         "leap": "D-Wave LeapHybridSampler (quantum-classical hybrid; DWAVE_API_TOKEN)",
         "custom_sa": "Built-in bit-flip simulated annealing (classical)",
         "ga": "Memetic genetic algorithm (uniform crossover, bit-flip mutation, 1-bit hill climb)",
+        "mqlib": "MQLib QUBO heuristic (default MERZ2004; set QUBO_MQLIB)",
         "kaiwu_sa": "Kaiwu SimulatedAnnealingOptimizer (classical CPU; no CIM key)",
         "kaiwu_tabu": "Kaiwu TabuSearchOptimizer (classical CPU; no CIM key)",
         "kaiwu_cim": "Kaiwu CIMOptimizer (QBoson photonic CIM; KAIWU_USER_ID + KAIWU_SDK_CODE)",
@@ -1125,6 +1137,117 @@ def _default_solver():
 def _env_int(name, default):
     raw = os.environ.get(name, "").strip()
     return int(raw) if raw else int(default)
+
+
+def mqlib_qubo_terms(Q):
+    """Upper-triangle terms whose MQLib objective equals ``-(xᵀ Q x)``.
+
+    MQLib maximizes ``sum_i Q_ii x_i + sum_{i<j} w_ij x_i x_j`` and stores each
+    pair once. Our energy counts both triangles, so the stored pair weight is
+    ``-2 Q_ij``.
+    """
+    Q = np.asarray(Q, dtype=np.float64)
+    Q = 0.5 * (Q + Q.T)
+    n = Q.shape[0]
+    terms = [(i + 1, i + 1, float(-Q[i, i])) for i in range(n)]
+    ii, jj = np.triu_indices(n, 1)
+    weights = -2.0 * Q[ii, jj]
+    keep = np.nonzero(weights)[0]
+    terms.extend(
+        (int(ii[t]) + 1, int(jj[t]) + 1, float(weights[t])) for t in keep
+    )
+    return terms
+
+
+def _mqlib_executable():
+    raw = os.environ.get("QUBO_MQLIB", "").strip()
+    if raw:
+        return raw
+    return "MQLib"
+
+
+def solve_mqlib_qubo(Q, num_reads=8, seed=0, heuristic=None):
+    """Run one MQLib QUBO heuristic on this matrix.
+
+    Default heuristic is ``MERZ2004`` (Merz and Katayama's memetic algorithm).
+    Override with ``QUBO_MQLIB_HEURISTIC`` (for example ``KATAYAMA2000`` or
+    ``MERZ1999GLS``). ``QUBO_MQLIB`` is the ``bin/MQLib`` executable from
+    https://github.com/MQLib/MQLib . ``QUBO_MQLIB_RUNTIME`` is the second budget
+    (default 120). The in-repo ``ga`` solver is unchanged.
+    """
+    import subprocess
+    import tempfile
+
+    heuristic = (
+        heuristic
+        or os.environ.get("QUBO_MQLIB_HEURISTIC", "").strip()
+        or "MERZ2004"
+    )
+    runtime = float(os.environ.get("QUBO_MQLIB_RUNTIME", "120") or "120")
+    exe = _mqlib_executable()
+    terms = mqlib_qubo_terms(Q)
+    n = Q.shape[0]
+    with tempfile.TemporaryDirectory(prefix="mqlib_qubo_") as folder:
+        path = os.path.join(folder, "instance.txt")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(f"{n} {len(terms)}\n")
+            for i, j, weight in terms:
+                handle.write(f"{i} {j} {weight:.16g}\n")
+        command = [
+            exe,
+            "-fQ",
+            path,
+            "-h",
+            heuristic,
+            "-r",
+            str(runtime),
+            "-s",
+            str(0 if seed is None else int(seed)),
+            "-ps",
+            "-nv",
+        ]
+        print(
+            f"MQLib {heuristic}: n={n} runtime={runtime:g}s exe={exe}",
+            flush=True,
+        )
+        try:
+            completed = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        except FileNotFoundError as exc:
+            raise FileNotFoundError(
+                "MQLib executable not found. Build https://github.com/MQLib/MQLib "
+                "and set QUBO_MQLIB to bin/MQLib."
+            ) from exc
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout or "").strip()
+        raise RuntimeError(
+            f"MQLib {heuristic} exited {completed.returncode}: {detail[:500]}"
+        )
+    assignments = _parse_mqlib_solution(completed.stdout, n)
+    vec = np.asarray(assignments, dtype=int)
+    energy = _energy(Q, vec)
+    print(
+        f"MQLib {heuristic}: energy={energy:.4f} |F*|={int(vec.sum())}",
+        flush=True,
+    )
+    return vec, float(energy)
+
+
+def _parse_mqlib_solution(stdout, n):
+    lines = stdout.splitlines()
+    for index, line in enumerate(lines):
+        if line.strip() == "Solution:":
+            bits = " ".join(lines[index + 1 :]).split()
+            if len(bits) < n:
+                raise RuntimeError(
+                    f"MQLib solution has {len(bits)} assignments, expected {n}"
+                )
+            return [int(float(bit)) for bit in bits[:n]]
+    raise RuntimeError("MQLib output has no Solution: block")
 
 
 def solve_genetic_qubo(Q, num_reads=8, seed=0):
@@ -1232,6 +1355,7 @@ def solve_qubo(
         "ocean_tabu": "tabu",
         "genetic": "ga",
         "memetic": "ga",
+        "merz2004": "mqlib",
     }
     solver = aliases.get(solver, solver)
     n = Q.shape[0]
@@ -1259,6 +1383,9 @@ def solve_qubo(
 
     if solver == "ga":
         return solve_genetic_qubo(Q, num_reads=num_reads, seed=seed)
+
+    if solver == "mqlib":
+        return solve_mqlib_qubo(Q, num_reads=num_reads, seed=seed)
 
     if solver == "sa":
         if not HAS_DWAVE:
@@ -1333,6 +1460,7 @@ def solve_qubo_target_k(
         "ocean_tabu": "tabu",
         "genetic": "ga",
         "memetic": "ga",
+        "merz2004": "mqlib",
     }
     solver = aliases.get((solver or _default_solver()).lower(), (solver or _default_solver()).lower())
     if alpha_solver is None:

@@ -49,6 +49,7 @@ K_TARGET = 50
 SOLVER = "tabu"
 COMPARE_KAIWU_TABU = False
 COMPARE_GA = True
+COMPARE_MQLIB = True
 
 _RMB = re.compile(r"RMB\d+", re.IGNORECASE)
 _MT = re.compile(r"^mt-", re.IGNORECASE)
@@ -253,6 +254,14 @@ def main():
             Q, selected, energy, k=k, feature_names=feature_names
         )
         extra["QUBO genetic"] = ga_idx
+    if COMPARE_MQLIB:
+        from qubo_experiment import compare_mqlib_on_same_q
+
+        mqlib_idx = compare_mqlib_on_same_q(
+            Q, selected, energy, k=k, feature_names=feature_names
+        )
+        if mqlib_idx is not None:
+            extra["QUBO MQLib"] = mqlib_idx
 
     lasso_idx, rf_idx = compare_with_lasso_rfr(
         X,
