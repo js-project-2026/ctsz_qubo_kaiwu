@@ -311,6 +311,52 @@
       FP4 最高 0.589，AAI 最高 0.612。把阈值从 0.50 挪到 0.36 之后，灵敏度升到 0.895，特异度降到 0.812，MCC 降到 0.709。
     </p>
 
+    <h2>6. 四个提升树、N 端二肽、以及 50 个基模型</h2>
+    <p>
+      <code>python dppiv_narrow.py --download</code>（2026-10-31）。10 折，阈值固定 0.50。
+      训练 MCC 低于 0.78 时才进入第 3 步。第 1 步和第 2 步的训练 MCC 是 0.744 和 0.743，所以第 3 步跑了。
+    </p>
+    <div class="banner">
+      <strong>seq+dpc 再加 N 端第一个二肽的提升树：ACC 0.891，MCC 0.783。</strong>
+      Sn 0.872，Sp 0.910，AUC 0.950。ACC 与 Table 3 相同，MCC 比 0.784 低 0.001。
+      同一模型的训练 out-of-fold MCC 是 0.722。四个提升树的堆叠 MCC 0.722、AUC 0.956。内层折选出的 10 个概率特征 MCC 0.670。
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>方案</th>
+          <th class="num">ACC</th><th class="num">Sn</th><th class="num">Sp</th>
+          <th class="num">MCC</th><th class="num">AUC</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>StackDPPIV Table 3</td>
+          <td class="num">0.891</td><td class="num">0.857</td><td class="num">0.925</td>
+          <td class="num">0.784</td><td class="num">0.961</td>
+        </tr>
+        <tr>
+          <td>HGB，seq+dpc+N 端二肽</td>
+          <td class="num">0.891</td><td class="num">0.872</td><td class="num">0.910</td>
+          <td class="num">0.783</td><td class="num">0.950</td>
+        </tr>
+        <tr>
+          <td>四个提升树的堆叠</td>
+          <td class="num">0.861</td><td class="num">0.842</td><td class="num">0.880</td>
+          <td class="num">0.722</td><td class="num">0.956</td>
+        </tr>
+        <tr>
+          <td>50 个基模型里内层折留下的 10 个</td>
+          <td class="num">0.835</td><td class="num">0.812</td><td class="num">0.857</td>
+          <td class="num">0.670</td><td class="num">0.945</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      N 端二肽单独给提升树时，训练 OOF MCC 只有 0.155。拼进 seq+dpc 之后，训练 OOF MCC 是 0.722，与不加这一维时的 0.724 同一水平。
+      50 个基模型里训练 OOF 最高的是随机森林 + EState，0.739。内层折留下的 10 列里没有 seq+dpc。
+    </p>
+
     <footer>
       数据：http://pmlabstack.pythonanywhere.com/static/ 的 TR/TS pos/neg，校验 532/532/133/133。
       AUC 为 Mann–Whitney，并列取平均秩。
