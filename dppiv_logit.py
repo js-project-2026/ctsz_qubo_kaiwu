@@ -267,6 +267,30 @@ def binary_metrics(y: np.ndarray, proba: np.ndarray, threshold: float = 0.5) -> 
     }
 
 
+def select_threshold(y: np.ndarray, proba: np.ndarray) -> tuple[float, float]:
+    """Pick a probability cut by MCC. Ties stay closest to 0.5.
+
+    The grid is fixed. ``y`` and ``proba`` must be training out-of-fold
+    predictions; the independent test set is not an input.
+    """
+    y = np.asarray(y)
+    proba = np.asarray(proba, dtype=np.float64)
+    best_t = 0.5
+    best_mcc = -np.inf
+    for step in range(5, 96):
+        threshold = step / 100.0
+        mcc = binary_metrics(y, proba, threshold=threshold)["MCC"]
+        if not np.isfinite(mcc):
+            continue
+        closer = abs(threshold - 0.5) < abs(best_t - 0.5) - 1e-12
+        if mcc > best_mcc + 1e-12 or (abs(mcc - best_mcc) <= 1e-12 and closer):
+            best_mcc = float(mcc)
+            best_t = threshold
+    if not np.isfinite(best_mcc):
+        return 0.5, float("nan")
+    return best_t, best_mcc
+
+
 def roc_auc(y: np.ndarray, score: np.ndarray) -> float:
     """AUC by the Mann-Whitney statistic. Ties count as one half."""
     y = np.asarray(y, dtype=np.int64)
