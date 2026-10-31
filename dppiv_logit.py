@@ -2,18 +2,19 @@
 
 A peptide is a variable-length string over the 20 standard amino acids.
 StackDPPIV turns that string into fifty model probabilities and stacks
-them. This script uses one convex model instead.
-
-The map phi(s) is fixed-length:
+them. This script fits one convex model on a fixed map phi(s):
 
 - amino-acid composition (20)
 - one-hot of the first residue (20)
 - one-hot of the second residue (20); zeros when the peptide is shorter
 - one-hot of the last residue (20)
+- dipeptide composition (400), the paper's DPC
+- log(length)
 
-An optional log(length) coordinate is a separate model. Positives in the
-public split are much shorter than negatives, so length is reported on
-its own and is not mixed into the sequence model silently.
+``dppiv_suite.py`` compares these blocks under L2 logistic, an RBF SVM,
+and histogram gradient boosting, then refits after length-balanced
+downsampling. Positives in the public split are much shorter than
+negatives, so length is reported on its own.
 
 The training problem is
 
@@ -40,7 +41,10 @@ AA = "ACDEFGHIKLMNPQRSTVWY"
 AA_INDEX = {aa: i for i, aa in enumerate(AA)}
 N_AA = len(AA)
 SEQ_DIM = 4 * N_AA  # AAC, N1, N2, C
+DPC_DIM = N_AA * N_AA
 LAMBDAS = (1e-3, 1e-2, 1e-1, 1.0, 10.0)
+# Bins used to hold length fixed. Positives cluster at 2–5, negatives at >= 11.
+LENGTH_BINS = ((2, 5, "2-5"), (6, 10, "6-10"), (11, 10**9, "11+"))
 
 DATA_BASE = "http://pmlabstack.pythonanywhere.com/static"
 DATA_FILES = {
@@ -114,17 +118,74 @@ def sequence_features(seqs: list[str]) -> np.ndarray:
     return out
 
 
+def dipeptide_features(seqs: list[str]) -> np.ndarray:
+    """Return (n, 400) dipeptide composition. Each row sums to 1 when length >= 2."""
+    out = np.zeros((len(seqs), N_AA * N_AA), dtype=np.float64)
+    for row, seq in enumerate(seqs):
+        pairs = len(seq) - 1
+        if pairs <= 0:
+            continue
+        for left, right in zip(seq, seq[1:]):
+            out[row, AA_INDEX[left] * N_AA + AA_INDEX[right]] += 1.0
+        out[row] /= pairs
+    return out
+
+
+def _log_length(seqs: list[str]) -> np.ndarray:
+    return np.log(np.array([len(seq) for seq in seqs], dtype=np.float64))[:, None]
+
+
 def feature_matrix(seqs: list[str], mode: str) -> np.ndarray:
-    """Build the design matrix for ``seq``, ``len``, or ``seq+len``."""
-    if mode == "len":
-        return np.log(np.array([len(seq) for seq in seqs], dtype=np.float64))[:, None]
-    seq = sequence_features(seqs)
-    if mode == "seq":
-        return seq
-    if mode == "seq+len":
-        length = np.log(np.array([len(s) for s in seqs], dtype=np.float64))[:, None]
-        return np.hstack([seq, length])
-    raise ValueError(f"Unknown feature mode {mode!r}")
+    """Build a design matrix.
+
+    ``mode`` is ``len``, ``seq``, ``dpc``, or a ``+`` combination such as
+    ``seq+dpc+len``. ``seq`` is composition plus the three terminal residues.
+    ``dpc`` is the 400-dimensional dipeptide composition.
+    """
+    blocks = {
+        "seq": sequence_features,
+        "dpc": dipeptide_features,
+        "len": _log_length,
+    }
+    names = [part for part in mode.split("+") if part]
+    unknown = [name for name in names if name not in blocks]
+    if unknown or not names:
+        raise ValueError(f"Unknown feature mode {mode!r}")
+    parts = [blocks[name](seqs) for name in names]
+    if len(parts) == 1:
+        return parts[0]
+    return np.hstack(parts)
+
+
+def length_bin_name(length: int) -> str:
+    """Name of the length bin that contains ``length``."""
+    for low, high, name in LENGTH_BINS:
+        if low <= length <= high:
+            return name
+    raise ValueError(f"No length bin for {length}")
+
+
+def balance_indices(lengths: np.ndarray, y: np.ndarray, seed: int = 0) -> np.ndarray:
+    """Downsample so each length bin contributes equally many positives and negatives.
+
+    A bin that contains only one class is left out. The returned indices are sorted.
+    """
+    lengths = np.asarray(lengths)
+    y = np.asarray(y)
+    rng = np.random.default_rng(seed)
+    chosen: list[np.ndarray] = []
+    for low, high, _name in LENGTH_BINS:
+        in_bin = np.flatnonzero((lengths >= low) & (lengths <= high))
+        positive = in_bin[y[in_bin] == 1]
+        negative = in_bin[y[in_bin] == 0]
+        n_keep = min(positive.size, negative.size)
+        if n_keep == 0:
+            continue
+        chosen.append(rng.choice(positive, n_keep, replace=False))
+        chosen.append(rng.choice(negative, n_keep, replace=False))
+    if not chosen:
+        raise RuntimeError("No length bin contains both classes")
+    return np.sort(np.concatenate(chosen))
 
 
 def _standardize_fit(X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

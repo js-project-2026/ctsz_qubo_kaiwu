@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DPP-IV 独立测试对照 StackDPPIV（2022）</title>
+  <style>
+    :root {
+      --bg: #f6f5f1; --ink: #1c1b19; --muted: #5c5852; --line: #d9d4c8;
+      --card: #fff; --ok: #1f6b4a; --warn: #8a5a10; --bad: #9b2c2c; --accent: #2457a6;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif; color: var(--ink); background: var(--bg); }
+    main { max-width: 920px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1 { font-size: 1.75rem; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 8px; }
+    h2 { font-size: 1.2rem; margin: 32px 0 12px; }
+    h3 { font-size: 1rem; margin: 0 0 10px; }
+    .lede { color: var(--muted); margin: 0 0 8px; }
+    a { color: var(--accent); }
+    .banner { background: #e8f3ec; border: 1px solid #b7d4c4; padding: 14px 16px; margin: 16px 0 24px; }
+    .banner strong { color: var(--ok); }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0 0 28px; }
+    .stat { background: var(--card); border: 1px solid var(--line); padding: 12px 14px; }
+    .stat b { display: block; font-size: 1.25rem; }
+    .stat span { color: var(--muted); font-size: 0.8rem; }
+    table { width: 100%; border-collapse: collapse; background: var(--card); font-size: 0.92rem; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-weight: 600; background: #eeeae2; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .ok { color: var(--ok); } .warn { color: var(--warn); }
+    .chart { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 12px 0 8px; }
+    .card { background: var(--card); border: 1px solid var(--line); padding: 14px 16px; }
+    .bars { display: flex; flex-direction: column; gap: 8px; }
+    .bar-row { display: grid; grid-template-columns: 92px 1fr 46px; gap: 8px; align-items: center; }
+    .bar-row span { font-size: 0.78rem; color: var(--muted); }
+    .track { height: 12px; background: #e8e4da; }
+    .fill { height: 12px; background: var(--accent); }
+    .fill.paper { background: #7a7468; }
+    .fill.prev { background: #c4b49a; }
+    .fill.ok { background: var(--ok); }
+    footer { margin-top: 36px; color: var(--muted); font-size: 0.85rem; }
+    code { font-size: 0.88em; }
+    @media (max-width: 720px) {
+      .stats, .chart { grid-template-columns: 1fr 1fr; }
+      .bar-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>DPP-IV 独立测试对照 StackDPPIV</h1>
+    <p class="lede">
+      公开划分 532+532 训练、133+133 独立测试。超参只在训练集上按分层 5 折 MCC 选择，测试集只评一次，阈值 0.5。
+      论文：Charoenkwan 等，<em>Methods</em> 204 (2022) 189–198，Table 3。
+      数字来自 <code>python dppiv_suite.py --download</code>（2026-10-31，scikit-learn 1.9.1，种子 0）。
+    </p>
+    <p class="lede"><a href="compare-stackdppiv-2022.html">English</a> · 中文</p>
+
+    <div class="banner">
+      <strong>MCC 和 ACC 最高的是直方图梯度提升、特征 seq+dpc。</strong>
+      ACC 0.876，Sn 0.857，Sp 0.895，MCC 0.752，AUC 0.949。
+      相对上一版 L2（seq+len，已在 main）：MCC 0.648 → 0.752，AUC 0.896 → 0.949。
+      论文仍高一截：MCC 0.784，AUC 0.961。加上 log(长度) 后 AUC 到 0.960，MCC 回到 0.707。
+    </div>
+
+    <div class="stats">
+      <div class="stat"><b>0.752</b><span>本次最高 MCC（论文 0.784）</span></div>
+      <div class="stat"><b>0.960</b><span>本次最高 AUC（论文 0.961）</span></div>
+      <div class="stat"><b>+0.104</b><span>MCC 相对上一版 L2 seq+len</span></div>
+      <div class="stat"><b>0.59</b><span>长度对齐后短肽箱内 AUC</span></div>
+    </div>
+
+    <h2>1. 和论文报告值并排</h2>
+    <p>
+      条宽是指标本身（0 到 1）。灰是论文 Table 3，浅色是上一版 L2 seq+len，蓝是本次 MCC 最高的 HGB seq+dpc，绿是本次 AUC 最高的 HGB seq+dpc+len。
+    </p>
+    <div class="chart">
+      <div class="card">
+        <h3>ACC</h3>
+        <div class="bars">
+          <div class="bar-row"><span>论文</span><div class="track"><div class="fill paper" style="width:89.1%"></div></div><span>0.891</span></div>
+          <div class="bar-row"><span>上一版 L2</span><div class="track"><div class="fill prev" style="width:82.3%"></div></div><span>0.823</span></div>
+          <div class="bar-row"><span>HGB seq+dpc</span><div class="track"><div class="fill" style="width:87.6%"></div></div><span>0.876</span></div>
+          <div class="bar-row"><span>HGB +长度</span><div class="track"><div class="fill ok" style="width:85.3%"></div></div><span>0.853</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>MCC</h3>
+        <div class="bars">
+          <div class="bar-row"><span>论文</span><div class="track"><div class="fill paper" style="width:78.4%"></div></div><span>0.784</span></div>
+          <div class="bar-row"><span>上一版 L2</span><div class="track"><div class="fill prev" style="width:64.8%"></div></div><span>0.648</span></div>
+          <div class="bar-row"><span>HGB seq+dpc</span><div class="track"><div class="fill" style="width:75.2%"></div></div><span>0.752</span></div>
+          <div class="bar-row"><span>HGB +长度</span><div class="track"><div class="fill ok" style="width:70.7%"></div></div><span>0.707</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>AUC</h3>
+        <div class="bars">
+          <div class="bar-row"><span>论文</span><div class="track"><div class="fill paper" style="width:96.1%"></div></div><span>0.961</span></div>
+          <div class="bar-row"><span>上一版 L2</span><div class="track"><div class="fill prev" style="width:89.6%"></div></div><span>0.896</span></div>
+          <div class="bar-row"><span>HGB seq+dpc</span><div class="track"><div class="fill" style="width:94.9%"></div></div><span>0.949</span></div>
+          <div class="bar-row"><span>HGB +长度</span><div class="track"><div class="fill ok" style="width:96.0%"></div></div><span>0.960</span></div>
+        </div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>模型</th>
+          <th class="num">ACC</th><th class="num">Sn</th><th class="num">Sp</th>
+          <th class="num">MCC</th><th class="num">AUC</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>StackDPPIV Table 3</td>
+          <td class="num">0.891</td><td class="num">0.857</td><td class="num">0.925</td>
+          <td class="num">0.784</td><td class="num">0.961</td>
+        </tr>
+        <tr>
+          <td>论文 Table 4，RF + AAC</td>
+          <td class="num">0.838</td><td class="num">0.812</td><td class="num">0.865</td>
+          <td class="num">0.678</td><td class="num">0.924</td>
+        </tr>
+        <tr>
+          <td>上一版 L2，seq+len</td>
+          <td class="num">0.823</td><td class="num">0.850</td><td class="num">0.797</td>
+          <td class="num">0.648</td><td class="num">0.896</td>
+        </tr>
+        <tr>
+          <td>本次 HGB，seq+dpc，深度 6</td>
+          <td class="num">0.876</td><td class="num">0.857</td><td class="num">0.895</td>
+          <td class="num">0.752</td><td class="num">0.949</td>
+        </tr>
+        <tr>
+          <td>本次 HGB，seq+dpc+len，深度 3</td>
+          <td class="num">0.853</td><td class="num">0.835</td><td class="num">0.872</td>
+          <td class="num">0.707</td><td class="num">0.960</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      HGB seq+dpc 的灵敏度与论文相同（0.857）。剩下的差距在特异度（0.895 对 0.925）和 MCC（0.752 对 0.784）。
+      AUC 最近的模型把 MCC 让回去了。论文的单模型基线 RF-AAC 是 20 维组成；我们的 seq 是 80 维（组成加三个端基），两边特征不完全相同。
+    </p>
+
+    <h2>2. 相对上一版的结果变化</h2>
+    <p>上一版是已合入 main 的 L2 逻辑回归，特征为 AAC + 三个端基 one-hot，外加 log(长度)。下表以它为起点。</p>
+    <table>
+      <thead>
+        <tr>
+          <th>指标</th>
+          <th class="num">上一版 L2 seq+len</th>
+          <th class="num">本次 HGB seq+dpc</th>
+          <th class="num">变化</th>
+          <th class="num">论文</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>ACC</td><td class="num">0.823</td><td class="num">0.876</td><td class="num ok">+0.053</td><td class="num">0.891</td></tr>
+        <tr><td>Sn</td><td class="num">0.850</td><td class="num">0.857</td><td class="num ok">+0.007</td><td class="num">0.857</td></tr>
+        <tr><td>Sp</td><td class="num">0.797</td><td class="num">0.895</td><td class="num ok">+0.098</td><td class="num">0.925</td></tr>
+        <tr><td>MCC</td><td class="num">0.648</td><td class="num">0.752</td><td class="num ok">+0.104</td><td class="num">0.784</td></tr>
+        <tr><td>AUC</td><td class="num">0.896</td><td class="num">0.949</td><td class="num ok">+0.053</td><td class="num">0.961</td></tr>
+      </tbody>
+    </table>
+    <p>
+      线性 DPC 单独使用时独立测试 AUC 0.584、MCC 0.288，低于 80 维 seq（AUC 0.735）。
+      同一 400 维换成 RBF 核后 AUC 0.894、MCC 0.655；再换成梯度提升后 AUC 0.907、MCC 0.696。
+      RBF 在 seq+dpc+len 上 MCC 0.693，仍低于 HGB seq+dpc 的 0.752。
+    </p>
+
+    <h2>3. 代码改了什么</h2>
+    <table>
+      <thead>
+        <tr><th>文件</th><th>改动</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>dppiv_logit.py</code></td>
+          <td>二肽组成 400 维（计数除以 L−1，长度小于 2 则为 0）。<code>feature_matrix</code> 接受 <code>seq</code>、<code>dpc</code>、<code>len</code> 以及用 <code>+</code> 拼起来的组合。增加长度箱 2–5、6–10、11+，以及按箱把正负样本下采样到相同数量的 <code>balance_indices</code>。</td>
+        </tr>
+        <tr>
+          <td><code>dppiv_suite.py</code></td>
+          <td>新的对照脚本。同一划分上跑 L2 逻辑回归、RBF SVM（C 为 0.1、1、10）和直方图梯度提升（深度 3 或 6）。交叉验证只看训练集 MCC。然后打印全量模型的箱内指标，以及长度平衡后再拟合的箱内指标。</td>
+        </tr>
+        <tr>
+          <td><code>tests/test_dppiv_logit.py</code></td>
+          <td>KPW 的二肽行和为 1，单残基肽为 0；<code>seq+dpc+len</code> 是 481 列。长度平衡后每个有两类的箱子正负数量相等。</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      原来的 <code>dppiv_logit.py --download</code> 仍只报告 len、seq、seq+len 三个 L2 模型。完整对照用 <code>dppiv_suite.py --download</code>。
+      指纹（Estate、MACCS、PubChem、FP4）和论文的 50 个基模型堆叠没有重做。
+    </p>
+
+    <h2>4. 长度对齐之后序列还剩多少</h2>
+    <p>
+      训练集长度：2–5 为 311/54，6–10 为 151/90，11+ 为 70/388。测试集：79/10、41/25、13/98。
+      按箱下采样后训练集剩 428 条（214/214）。下图是平衡后再拟合的逻辑回归，在独立测试各箱内的 AUC。0.5 是随机。
+    </p>
+    <div class="card">
+      <h3>长度平衡后，箱内 AUC</h3>
+      <div class="bars">
+        <div class="bar-row"><span>seq · 2–5</span><div class="track"><div class="fill" style="width:59.4%"></div></div><span>0.594</span></div>
+        <div class="bar-row"><span>seq · 6–10</span><div class="track"><div class="fill" style="width:58.8%"></div></div><span>0.588</span></div>
+        <div class="bar-row"><span>seq · 11+</span><div class="track"><div class="fill ok" style="width:89.0%"></div></div><span>0.890</span></div>
+        <div class="bar-row"><span>dpc · 2–5</span><div class="track"><div class="fill prev" style="width:60.1%"></div></div><span>0.601</span></div>
+        <div class="bar-row"><span>dpc · 6–10</span><div class="track"><div class="fill prev" style="width:59.3%"></div></div><span>0.593</span></div>
+        <div class="bar-row"><span>dpc · 11+</span><div class="track"><div class="fill ok" style="width:92.9%"></div></div><span>0.929</span></div>
+        <div class="bar-row"><span>seq+dpc · 2–5</span><div class="track"><div class="fill paper" style="width:60.8%"></div></div><span>0.608</span></div>
+        <div class="bar-row"><span>seq+dpc · 6–10</span><div class="track"><div class="fill paper" style="width:58.5%"></div></div><span>0.585</span></div>
+        <div class="bar-row"><span>seq+dpc · 11+</span><div class="track"><div class="fill ok" style="width:95.4%"></div></div><span>0.954</span></div>
+      </div>
+    </div>
+    <p>
+      2–5 和 6–10 的箱内 AUC 在 0.59 附近，MCC 在 0.06 到 0.18。11+ 的 AUC 到 0.89–0.95，但测试阳性只有 13 条，对应 MCC 是 0.387（seq）、0.512（dpc）、0.522（seq+dpc）。
+      短肽和中等长度上，组成特征在长度被对齐之后接近随机。
+    </p>
+
+    <footer>
+      数据：http://pmlabstack.pythonanywhere.com/static/ 的 TR/TS pos/neg，校验 532/532/133/133。
+      AUC 为 Mann–Whitney，并列取平均秩。
+    </footer>
+  </main>
+</body>
+</html>

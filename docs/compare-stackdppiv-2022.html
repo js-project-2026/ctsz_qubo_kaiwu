@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DPP-IV independent test vs StackDPPIV (2022)</title>
+  <style>
+    :root {
+      --bg: #f6f5f1; --ink: #1c1b19; --muted: #5c5852; --line: #d9d4c8;
+      --card: #fff; --ok: #1f6b4a; --warn: #8a5a10; --accent: #2457a6;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }
+    main { max-width: 920px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1 { font-size: 1.75rem; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 8px; }
+    h2 { font-size: 1.2rem; margin: 32px 0 12px; }
+    h3 { font-size: 1rem; margin: 0 0 10px; }
+    .lede { color: var(--muted); margin: 0 0 8px; }
+    a { color: var(--accent); }
+    .banner { background: #e8f3ec; border: 1px solid #b7d4c4; padding: 14px 16px; margin: 16px 0 24px; }
+    .banner strong { color: var(--ok); }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0 0 28px; }
+    .stat { background: var(--card); border: 1px solid var(--line); padding: 12px 14px; }
+    .stat b { display: block; font-size: 1.25rem; }
+    .stat span { color: var(--muted); font-size: 0.8rem; }
+    table { width: 100%; border-collapse: collapse; background: var(--card); font-size: 0.92rem; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-weight: 600; background: #eeeae2; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .ok { color: var(--ok); }
+    .chart { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 12px 0 8px; }
+    .card { background: var(--card); border: 1px solid var(--line); padding: 14px 16px; }
+    .bars { display: flex; flex-direction: column; gap: 8px; }
+    .bar-row { display: grid; grid-template-columns: 108px 1fr 46px; gap: 8px; align-items: center; }
+    .bar-row span { font-size: 0.78rem; color: var(--muted); }
+    .track { height: 12px; background: #e8e4da; }
+    .fill { height: 12px; background: var(--accent); }
+    .fill.paper { background: #7a7468; }
+    .fill.prev { background: #c4b49a; }
+    .fill.ok { background: var(--ok); }
+    footer { margin-top: 36px; color: var(--muted); font-size: 0.85rem; }
+    code { font-size: 0.88em; }
+    @media (max-width: 720px) {
+      .stats, .chart { grid-template-columns: 1fr 1fr; }
+      .bar-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>DPP-IV independent test vs StackDPPIV</h1>
+    <p class="lede">
+      Published split: 532+532 train, 133+133 independent test. Hyperparameters are chosen by stratified 5-fold MCC on the training split only. The test set is scored once, at probability 0.5.
+      Paper: Charoenkwan et al., <em>Methods</em> 204 (2022) 189–198, Table 3.
+      Numbers from <code>python dppiv_suite.py --download</code> (2026-10-31, scikit-learn 1.9.1, seed 0).
+    </p>
+    <p class="lede">English · <a href="compare-stackdppiv-2022.zh.html">中文</a></p>
+
+    <div class="banner">
+      <strong>Best MCC and ACC: histogram gradient boosting on seq+dpc.</strong>
+      ACC 0.876, Sn 0.857, Sp 0.895, MCC 0.752, AUC 0.949.
+      Against the previous L2 model on main (seq+len): MCC 0.648 → 0.752, AUC 0.896 → 0.949.
+      The paper remains ahead at MCC 0.784 and AUC 0.961. Adding log(length) reaches AUC 0.960 and drops MCC to 0.707.
+    </div>
+
+    <div class="stats">
+      <div class="stat"><b>0.752</b><span>Best MCC here (paper 0.784)</span></div>
+      <div class="stat"><b>0.960</b><span>Best AUC here (paper 0.961)</span></div>
+      <div class="stat"><b>+0.104</b><span>MCC vs previous L2 seq+len</span></div>
+      <div class="stat"><b>0.59</b><span>Within-bin AUC on short peptides</span></div>
+    </div>
+
+    <h2>1. Side by side with the reported numbers</h2>
+    <p>
+      Bar width is the metric on [0, 1]. Gray is Table 3. Tan is the previous L2 seq+len model. Blue is this run’s best MCC (HGB seq+dpc). Green is this run’s best AUC (HGB seq+dpc+len).
+    </p>
+    <div class="chart">
+      <div class="card">
+        <h3>ACC</h3>
+        <div class="bars">
+          <div class="bar-row"><span>Paper</span><div class="track"><div class="fill paper" style="width:89.1%"></div></div><span>0.891</span></div>
+          <div class="bar-row"><span>Prior L2</span><div class="track"><div class="fill prev" style="width:82.3%"></div></div><span>0.823</span></div>
+          <div class="bar-row"><span>HGB seq+dpc</span><div class="track"><div class="fill" style="width:87.6%"></div></div><span>0.876</span></div>
+          <div class="bar-row"><span>HGB + length</span><div class="track"><div class="fill ok" style="width:85.3%"></div></div><span>0.853</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>MCC</h3>
+        <div class="bars">
+          <div class="bar-row"><span>Paper</span><div class="track"><div class="fill paper" style="width:78.4%"></div></div><span>0.784</span></div>
+          <div class="bar-row"><span>Prior L2</span><div class="track"><div class="fill prev" style="width:64.8%"></div></div><span>0.648</span></div>
+          <div class="bar-row"><span>HGB seq+dpc</span><div class="track"><div class="fill" style="width:75.2%"></div></div><span>0.752</span></div>
+          <div class="bar-row"><span>HGB + length</span><div class="track"><div class="fill ok" style="width:70.7%"></div></div><span>0.707</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>AUC</h3>
+        <div class="bars">
+          <div class="bar-row"><span>Paper</span><div class="track"><div class="fill paper" style="width:96.1%"></div></div><span>0.961</span></div>
+          <div class="bar-row"><span>Prior L2</span><div class="track"><div class="fill prev" style="width:89.6%"></div></div><span>0.896</span></div>
+          <div class="bar-row"><span>HGB seq+dpc</span><div class="track"><div class="fill" style="width:94.9%"></div></div><span>0.949</span></div>
+          <div class="bar-row"><span>HGB + length</span><div class="track"><div class="fill ok" style="width:96.0%"></div></div><span>0.960</span></div>
+        </div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th class="num">ACC</th><th class="num">Sn</th><th class="num">Sp</th>
+          <th class="num">MCC</th><th class="num">AUC</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>StackDPPIV Table 3</td>
+          <td class="num">0.891</td><td class="num">0.857</td><td class="num">0.925</td>
+          <td class="num">0.784</td><td class="num">0.961</td>
+        </tr>
+        <tr>
+          <td>Paper Table 4, RF + AAC</td>
+          <td class="num">0.838</td><td class="num">0.812</td><td class="num">0.865</td>
+          <td class="num">0.678</td><td class="num">0.924</td>
+        </tr>
+        <tr>
+          <td>Previous L2, seq+len</td>
+          <td class="num">0.823</td><td class="num">0.850</td><td class="num">0.797</td>
+          <td class="num">0.648</td><td class="num">0.896</td>
+        </tr>
+        <tr>
+          <td>This run, HGB seq+dpc, depth 6</td>
+          <td class="num">0.876</td><td class="num">0.857</td><td class="num">0.895</td>
+          <td class="num">0.752</td><td class="num">0.949</td>
+        </tr>
+        <tr>
+          <td>This run, HGB seq+dpc+len, depth 3</td>
+          <td class="num">0.853</td><td class="num">0.835</td><td class="num">0.872</td>
+          <td class="num">0.707</td><td class="num">0.960</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Sensitivity of HGB seq+dpc matches the paper (0.857). The remaining gap is specificity (0.895 vs 0.925) and MCC (0.752 vs 0.784).
+      The model closest in AUC gives that MCC back. Table 4 RF-AAC uses 20 composition counts; our seq block is 80 dimensions (composition plus three terminal one-hots).
+    </p>
+
+    <h2>2. Change from the previous model</h2>
+    <p>The previous model, already on main, is L2 logistic regression on amino-acid composition, three terminal one-hots, and log(length).</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th class="num">Previous L2 seq+len</th>
+          <th class="num">HGB seq+dpc</th>
+          <th class="num">Change</th>
+          <th class="num">Paper</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>ACC</td><td class="num">0.823</td><td class="num">0.876</td><td class="num ok">+0.053</td><td class="num">0.891</td></tr>
+        <tr><td>Sn</td><td class="num">0.850</td><td class="num">0.857</td><td class="num ok">+0.007</td><td class="num">0.857</td></tr>
+        <tr><td>Sp</td><td class="num">0.797</td><td class="num">0.895</td><td class="num ok">+0.098</td><td class="num">0.925</td></tr>
+        <tr><td>MCC</td><td class="num">0.648</td><td class="num">0.752</td><td class="num ok">+0.104</td><td class="num">0.784</td></tr>
+        <tr><td>AUC</td><td class="num">0.896</td><td class="num">0.949</td><td class="num ok">+0.053</td><td class="num">0.961</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Linear DPC alone scores AUC 0.584 and MCC 0.288, below the 80-d sequence block (AUC 0.735).
+      The same 400 dimensions with an RBF kernel reach AUC 0.894 and MCC 0.655; gradient boosting reaches AUC 0.907 and MCC 0.696.
+      The best RBF MCC is 0.693 on seq+dpc+len, below HGB seq+dpc at 0.752.
+    </p>
+
+    <h2>3. What the code changed</h2>
+    <table>
+      <thead><tr><th>File</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>dppiv_logit.py</code></td>
+          <td>400-d dipeptide composition (count / (L−1); zeros when L &lt; 2). <code>feature_matrix</code> accepts <code>seq</code>, <code>dpc</code>, <code>len</code>, and <code>+</code> combinations. Length bins 2–5, 6–10, 11+, and <code>balance_indices</code> to downsample each bin to equal class counts.</td>
+        </tr>
+        <tr>
+          <td><code>dppiv_suite.py</code></td>
+          <td>New comparison script: L2 logistic, RBF SVM (C in {0.1, 1, 10}), and histogram gradient boosting (depth 3 or 6) on the same split. Cross-validation uses training MCC only, then reports within-bin scores before and after the length-balanced refit.</td>
+        </tr>
+        <tr>
+          <td><code>tests/test_dppiv_logit.py</code></td>
+          <td>Dipeptide row of KPW sums to 1; a single residue is all zeros; <code>seq+dpc+len</code> has 481 columns. Balancing keeps equal positive and negative counts inside each occupied bin.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      <code>dppiv_logit.py --download</code> still reports only the three L2 models len, seq, and seq+len. The full comparison is <code>dppiv_suite.py --download</code>.
+      Fingerprints (Estate, MACCS, PubChem, FP4) and the paper’s stack of 50 base models were not reimplemented.
+    </p>
+
+    <h2>4. Sequence signal after length is held fixed</h2>
+    <p>
+      Train lengths: 2–5 is 311/54, 6–10 is 151/90, 11+ is 70/388. Test: 79/10, 41/25, 13/98.
+      Downsampling leaves 428 training rows (214/214). Bars are within-bin AUC of logistic regression refit on that balanced set. 0.5 is chance.
+    </p>
+    <div class="card">
+      <h3>Within-bin AUC after length balancing</h3>
+      <div class="bars">
+        <div class="bar-row"><span>seq · 2–5</span><div class="track"><div class="fill" style="width:59.4%"></div></div><span>0.594</span></div>
+        <div class="bar-row"><span>seq · 6–10</span><div class="track"><div class="fill" style="width:58.8%"></div></div><span>0.588</span></div>
+        <div class="bar-row"><span>seq · 11+</span><div class="track"><div class="fill ok" style="width:89.0%"></div></div><span>0.890</span></div>
+        <div class="bar-row"><span>dpc · 2–5</span><div class="track"><div class="fill prev" style="width:60.1%"></div></div><span>0.601</span></div>
+        <div class="bar-row"><span>dpc · 6–10</span><div class="track"><div class="fill prev" style="width:59.3%"></div></div><span>0.593</span></div>
+        <div class="bar-row"><span>dpc · 11+</span><div class="track"><div class="fill ok" style="width:92.9%"></div></div><span>0.929</span></div>
+        <div class="bar-row"><span>seq+dpc · 2–5</span><div class="track"><div class="fill paper" style="width:60.8%"></div></div><span>0.608</span></div>
+        <div class="bar-row"><span>seq+dpc · 6–10</span><div class="track"><div class="fill paper" style="width:58.5%"></div></div><span>0.585</span></div>
+        <div class="bar-row"><span>seq+dpc · 11+</span><div class="track"><div class="fill ok" style="width:95.4%"></div></div><span>0.954</span></div>
+      </div>
+    </div>
+    <p>
+      Bins 2–5 and 6–10 sit near AUC 0.59, with MCC 0.06–0.18. The 11+ AUC of 0.89–0.95 rests on 13 test positives; the matching MCCs are 0.387 (seq), 0.512 (dpc), and 0.522 (seq+dpc).
+      Once length is aligned, composition barely separates the short and mid-length peptides.
+    </p>
+
+    <footer>
+      Data: TR/TS pos/neg from http://pmlabstack.pythonanywhere.com/static/ , checked at 532/532/133/133.
+      AUC is Mann–Whitney with average ranks for ties.
+    </footer>
+  </main>
+</body>
+</html>
