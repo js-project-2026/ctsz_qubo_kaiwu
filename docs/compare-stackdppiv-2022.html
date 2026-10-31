@@ -309,6 +309,52 @@
       FP4 peaks at 0.589 and AAI at 0.612. Moving the cut from 0.50 to 0.36 raises sensitivity to 0.895 and lowers specificity to 0.812, so MCC falls to 0.709.
     </p>
 
+    <h2>6. Four boosters, the N-terminal dipeptide, and 50 base models</h2>
+    <p>
+      <code>python dppiv_narrow.py --download</code> (2026-10-31). Ten folds, threshold fixed at 0.50.
+      Step 3 runs when the training MCC of steps 1 and 2 is below 0.78. Those figures were 0.744 and 0.743, so step 3 ran.
+    </p>
+    <div class="banner">
+      <strong>Gradient boosting on seq+dpc plus the first dipeptide: ACC 0.891, MCC 0.783.</strong>
+      Sn 0.872, Sp 0.910, AUC 0.950. ACC matches Table 3. MCC is 0.001 under 0.784.
+      The same model's training out-of-fold MCC is 0.722. The four-booster stack scores MCC 0.722 and AUC 0.956. The 10 probabilities kept by the inner fold score MCC 0.670.
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Scheme</th>
+          <th class="num">ACC</th><th class="num">Sn</th><th class="num">Sp</th>
+          <th class="num">MCC</th><th class="num">AUC</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>StackDPPIV Table 3</td>
+          <td class="num">0.891</td><td class="num">0.857</td><td class="num">0.925</td>
+          <td class="num">0.784</td><td class="num">0.961</td>
+        </tr>
+        <tr>
+          <td>HGB, seq+dpc+N-terminal dipeptide</td>
+          <td class="num">0.891</td><td class="num">0.872</td><td class="num">0.910</td>
+          <td class="num">0.783</td><td class="num">0.950</td>
+        </tr>
+        <tr>
+          <td>Stack of four boosters</td>
+          <td class="num">0.861</td><td class="num">0.842</td><td class="num">0.880</td>
+          <td class="num">0.722</td><td class="num">0.956</td>
+        </tr>
+        <tr>
+          <td>10 of 50 base models, chosen on an inner fold</td>
+          <td class="num">0.835</td><td class="num">0.812</td><td class="num">0.857</td>
+          <td class="num">0.670</td><td class="num">0.945</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      The first dipeptide alone has training OOF MCC 0.155. Concatenated with seq+dpc, training OOF MCC is 0.722, level with seq+dpc at 0.724.
+      The strongest of the 50 base models on training OOF is random forest with EState, at 0.739. The 10 columns kept by the inner fold do not include seq+dpc.
+    </p>
+
     <footer>
       Data: TR/TS pos/neg from http://pmlabstack.pythonanywhere.com/static/ , checked at 532/532/133/133.
       AUC is Mann–Whitney with average ranks for ties.

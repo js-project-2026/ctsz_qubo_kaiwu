@@ -147,6 +147,7 @@ CTD_DIM = 13 * 21
 PAAC_DIM = N_AA + 1
 APAAC_DIM = N_AA + 2
 AAI_DIM = len(_AAI_NAMES)
+NTERM_DIM = N_AA * N_AA
 FP_DIMS = {"estate": 79, "maccs": 166, "pubchem": 881, "fp4": 307}
 
 
@@ -321,6 +322,19 @@ def apaac_features(seqs: list[str], lam: int = 1, weight: float = 0.05) -> np.nd
         denom = 1.0 + weight * float(theta_arr.sum())
         out[row, :N_AA] = freq / denom
         out[row, N_AA:] = weight * theta_arr / denom
+    return out
+
+
+def nterm_dipeptide_features(seqs: list[str]) -> np.ndarray:
+    """One-hot of the first dipeptide only. Zeros when the peptide has one residue.
+
+    Unlike dipeptide composition, later pairs do not dilute this coordinate.
+    """
+    out = np.zeros((len(seqs), NTERM_DIM), dtype=np.float64)
+    for row, seq in enumerate(seqs):
+        if len(seq) < 2:
+            continue
+        out[row, AA_INDEX[seq[0]] * N_AA + AA_INDEX[seq[1]]] = 1.0
     return out
 
 

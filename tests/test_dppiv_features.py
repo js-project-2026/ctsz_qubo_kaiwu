@@ -43,6 +43,18 @@ def test_paac_and_apaac_are_compositions():
     assert aai[0, 9] == 0.0  # charge
 
 
+def test_nterm_dipeptide_is_only_the_first_pair():
+    from dppiv_features import NTERM_DIM, nterm_dipeptide_features
+
+    X = nterm_dipeptide_features(["KPW", "A"])
+    assert X.shape == (2, NTERM_DIM)
+    # K is 8 and P is 12. PW must stay empty: only the first pair is marked.
+    assert X[0, 8 * 20 + 12] == 1.0
+    assert X[0].sum() == 1.0
+    assert X[0, 12 * 20 + 18] == 0.0
+    assert X[1].sum() == 0.0
+
+
 def test_fingerprints_match_the_paper_widths():
     from dppiv_features import FP_DIMS, fingerprint_features
 
