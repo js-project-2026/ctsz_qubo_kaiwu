@@ -31,6 +31,8 @@ Local solvers: D-Wave Ocean `TabuSampler` / `SimulatedAnnealingSampler` (**class
 | `paths.py` | Resolves `QUBO_REPO_DIR` / `QUBO_DATA_DIR` |
 | `docs/compare-romero-2025.html` | Latest notebook vs paper (English) |
 | `docs/compare-romero-2025.zh.html` | Same report in Chinese, including GSE308682 train/test split |
+| `docs/compare-stackdppiv-2022.html` | DPP-IV independent test vs StackDPPIV Table 3 (English) |
+| `docs/compare-stackdppiv-2022.zh.html` | Same DPP-IV report in Chinese: DPC, RBF, boosting, length bins |
 | `docs/briefing-qubo-effort.html` | Bilingual progress report: k=50 at 5,000 genes, charts, optional CIM compare |
 | `docs/cim-quota-request.zh.md` | 光子 CIM 真机算力申请文案（可直接提交） |
 | `docs_v2/` | Fetal Smart-seq2 QUBO vs Ranzoni/Cvejic (English + Chinese; charts + CIM/ARES) |
@@ -162,4 +164,9 @@ Synthetic §2.3 in `qubo_model.generate_synthetic_data` is the setting for Table
 
 Fetal Smart-seq2 write-up: [`docs_v2/compare-ranzoni-2021.html`](docs_v2/compare-ranzoni-2021.html) · [中文](docs_v2/compare-ranzoni-2021.zh.html) · bilingual briefing [`docs_v2/briefing-qubo-v2.html`](docs_v2/briefing-qubo-v2.html).
 Notebook: Ocean |F\*|=51, E=−0.7813; Kaiwu overlap 31/50; Q∩L 15/50.
+
+## Results vs StackDPPIV
+
+DPP-IV inhibitory peptides on the published 532+532 / 133+133 split: [`docs/compare-stackdppiv-2022.html`](docs/compare-stackdppiv-2022.html) · [中文](docs/compare-stackdppiv-2022.zh.html).
+Histogram gradient boosting on sequence features plus dipeptide composition reaches independent-test MCC 0.752 and AUC 0.949 (paper Table 3: MCC 0.784, AUC 0.961). The same model plus log(length) reaches AUC 0.960.
 
