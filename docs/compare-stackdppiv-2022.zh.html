@@ -220,6 +220,97 @@
       短肽和中等长度上，组成特征在长度被对齐之后接近随机。
     </p>
 
+    <h2>5. 阈值、堆叠和化学指纹</h2>
+    <p>
+      <code>python dppiv_opt.py --download</code>（2026-10-31）。深度、正则和保留多少个基模型都由训练集 out-of-fold MCC 决定，独立测试每种方案只评一次。
+      提升树 <code>max_iter=200</code>。论文 Table 3 仍是 ACC 0.891、Sn 0.857、Sp 0.925、MCC 0.784、AUC 0.961。
+    </p>
+    <div class="banner">
+      <strong>训练集选定的模型是第 5 步，保留 20 个基模型。</strong>
+      独立测试 ACC 0.850，Sn 0.857，Sp 0.842，MCC 0.699，AUC 0.948。
+      全量 33 个基模型的堆叠把特异度做到 0.925，与 Table 3 相同；MCC 0.742，AUC 0.953。
+      同一棵 seq+dpc 提升树在阈值 0.50 上 MCC 0.759、AUC 0.948，这是这次运行里最高的 MCC。
+    </div>
+    <div class="chart">
+      <div class="card">
+        <h3>MCC</h3>
+        <div class="bars">
+          <div class="bar-row"><span>论文</span><div class="track"><div class="fill paper" style="width:78.4%"></div></div><span>0.784</span></div>
+          <div class="bar-row"><span>HGB 阈值 0.50</span><div class="track"><div class="fill" style="width:75.9%"></div></div><span>0.759</span></div>
+          <div class="bar-row"><span>全量堆叠</span><div class="track"><div class="fill ok" style="width:74.2%"></div></div><span>0.742</span></div>
+          <div class="bar-row"><span>训练选定</span><div class="track"><div class="fill prev" style="width:69.9%"></div></div><span>0.699</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>特异度</h3>
+        <div class="bars">
+          <div class="bar-row"><span>论文</span><div class="track"><div class="fill paper" style="width:92.5%"></div></div><span>0.925</span></div>
+          <div class="bar-row"><span>HGB 阈值 0.50</span><div class="track"><div class="fill" style="width:88.7%"></div></div><span>0.887</span></div>
+          <div class="bar-row"><span>全量堆叠</span><div class="track"><div class="fill ok" style="width:92.5%"></div></div><span>0.925</span></div>
+          <div class="bar-row"><span>训练选定</span><div class="track"><div class="fill prev" style="width:84.2%"></div></div><span>0.842</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>AUC</h3>
+        <div class="bars">
+          <div class="bar-row"><span>论文</span><div class="track"><div class="fill paper" style="width:96.1%"></div></div><span>0.961</span></div>
+          <div class="bar-row"><span>HGB 阈值 0.50</span><div class="track"><div class="fill" style="width:94.8%"></div></div><span>0.948</span></div>
+          <div class="bar-row"><span>全量堆叠</span><div class="track"><div class="fill ok" style="width:95.3%"></div></div><span>0.953</span></div>
+          <div class="bar-row"><span>训练选定</span><div class="track"><div class="fill prev" style="width:94.8%"></div></div><span>0.948</span></div>
+        </div>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>方案</th>
+          <th class="num">ACC</th><th class="num">Sn</th><th class="num">Sp</th>
+          <th class="num">MCC</th><th class="num">AUC</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>StackDPPIV Table 3</td>
+          <td class="num">0.891</td><td class="num">0.857</td><td class="num">0.925</td>
+          <td class="num">0.784</td><td class="num">0.961</td>
+        </tr>
+        <tr>
+          <td>1. HGB seq+dpc，OOF 阈值 0.36，深度 6</td>
+          <td class="num">0.853</td><td class="num">0.895</td><td class="num">0.812</td>
+          <td class="num">0.709</td><td class="num">0.948</td>
+        </tr>
+        <tr>
+          <td>同一模型，阈值 0.50</td>
+          <td class="num">0.880</td><td class="num">0.872</td><td class="num">0.887</td>
+          <td class="num">0.759</td><td class="num">0.948</td>
+        </tr>
+        <tr>
+          <td>2. seq / dpc / seq+dpc 的 9 个基模型</td>
+          <td class="num">0.872</td><td class="num">0.880</td><td class="num">0.865</td>
+          <td class="num">0.744</td><td class="num">0.951</td>
+        </tr>
+        <tr>
+          <td>3. 加上 CTD、PAAC、APAAC、AAI</td>
+          <td class="num">0.868</td><td class="num">0.857</td><td class="num">0.880</td>
+          <td class="num">0.737</td><td class="num">0.948</td>
+        </tr>
+        <tr>
+          <td>4. 加上 EState、MACCS、PubChem、FP4</td>
+          <td class="num">0.868</td><td class="num">0.812</td><td class="num">0.925</td>
+          <td class="num">0.742</td><td class="num">0.953</td>
+        </tr>
+        <tr>
+          <td>5. 训练集留下的 20 个基模型</td>
+          <td class="num">0.850</td><td class="num">0.857</td><td class="num">0.842</td>
+          <td class="num">0.699</td><td class="num">0.948</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      基模型在训练集上的 out-of-fold MCC：hgb:ctd 0.726，hgb:seq+dpc 0.719，hgb:seq 0.709，hgb:estate 0.709。
+      FP4 最高 0.589，AAI 最高 0.612。把阈值从 0.50 挪到 0.36 之后，灵敏度升到 0.895，特异度降到 0.812，MCC 降到 0.709。
+    </p>
+
     <footer>
       数据：http://pmlabstack.pythonanywhere.com/static/ 的 TR/TS pos/neg，校验 532/532/133/133。
       AUC 为 Mann–Whitney，并列取平均秩。

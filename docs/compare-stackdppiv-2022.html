@@ -218,6 +218,97 @@
       Once length is aligned, composition barely separates the short and mid-length peptides.
     </p>
 
+    <h2>5. Threshold, stack, and chemical fingerprints</h2>
+    <p>
+      <code>python dppiv_opt.py --download</code> (2026-10-31). Depth, regularization, and how many base models to keep are chosen by training out-of-fold MCC. Each scheme is scored once on the independent test. Boosting uses <code>max_iter=200</code>.
+      Table 3 remains ACC 0.891, Sn 0.857, Sp 0.925, MCC 0.784, AUC 0.961.
+    </p>
+    <div class="banner">
+      <strong>The training rule selects stage 5, which keeps 20 base models.</strong>
+      Independent test: ACC 0.850, Sn 0.857, Sp 0.842, MCC 0.699, AUC 0.948.
+      The full stack of 33 base models reaches specificity 0.925, the same figure as Table 3, with MCC 0.742 and AUC 0.953.
+      The same seq+dpc booster at a 0.50 cut has MCC 0.759 and AUC 0.948, the highest MCC in this run.
+    </div>
+    <div class="chart">
+      <div class="card">
+        <h3>MCC</h3>
+        <div class="bars">
+          <div class="bar-row"><span>Paper</span><div class="track"><div class="fill paper" style="width:78.4%"></div></div><span>0.784</span></div>
+          <div class="bar-row"><span>HGB at 0.50</span><div class="track"><div class="fill" style="width:75.9%"></div></div><span>0.759</span></div>
+          <div class="bar-row"><span>Full stack</span><div class="track"><div class="fill ok" style="width:74.2%"></div></div><span>0.742</span></div>
+          <div class="bar-row"><span>Train-chosen</span><div class="track"><div class="fill prev" style="width:69.9%"></div></div><span>0.699</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Specificity</h3>
+        <div class="bars">
+          <div class="bar-row"><span>Paper</span><div class="track"><div class="fill paper" style="width:92.5%"></div></div><span>0.925</span></div>
+          <div class="bar-row"><span>HGB at 0.50</span><div class="track"><div class="fill" style="width:88.7%"></div></div><span>0.887</span></div>
+          <div class="bar-row"><span>Full stack</span><div class="track"><div class="fill ok" style="width:92.5%"></div></div><span>0.925</span></div>
+          <div class="bar-row"><span>Train-chosen</span><div class="track"><div class="fill prev" style="width:84.2%"></div></div><span>0.842</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>AUC</h3>
+        <div class="bars">
+          <div class="bar-row"><span>Paper</span><div class="track"><div class="fill paper" style="width:96.1%"></div></div><span>0.961</span></div>
+          <div class="bar-row"><span>HGB at 0.50</span><div class="track"><div class="fill" style="width:94.8%"></div></div><span>0.948</span></div>
+          <div class="bar-row"><span>Full stack</span><div class="track"><div class="fill ok" style="width:95.3%"></div></div><span>0.953</span></div>
+          <div class="bar-row"><span>Train-chosen</span><div class="track"><div class="fill prev" style="width:94.8%"></div></div><span>0.948</span></div>
+        </div>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Scheme</th>
+          <th class="num">ACC</th><th class="num">Sn</th><th class="num">Sp</th>
+          <th class="num">MCC</th><th class="num">AUC</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>StackDPPIV Table 3</td>
+          <td class="num">0.891</td><td class="num">0.857</td><td class="num">0.925</td>
+          <td class="num">0.784</td><td class="num">0.961</td>
+        </tr>
+        <tr>
+          <td>1. HGB seq+dpc, OOF threshold 0.36, depth 6</td>
+          <td class="num">0.853</td><td class="num">0.895</td><td class="num">0.812</td>
+          <td class="num">0.709</td><td class="num">0.948</td>
+        </tr>
+        <tr>
+          <td>Same model, threshold 0.50</td>
+          <td class="num">0.880</td><td class="num">0.872</td><td class="num">0.887</td>
+          <td class="num">0.759</td><td class="num">0.948</td>
+        </tr>
+        <tr>
+          <td>2. Nine models on seq, dpc, seq+dpc</td>
+          <td class="num">0.872</td><td class="num">0.880</td><td class="num">0.865</td>
+          <td class="num">0.744</td><td class="num">0.951</td>
+        </tr>
+        <tr>
+          <td>3. Plus CTD, PAAC, APAAC, AAI</td>
+          <td class="num">0.868</td><td class="num">0.857</td><td class="num">0.880</td>
+          <td class="num">0.737</td><td class="num">0.948</td>
+        </tr>
+        <tr>
+          <td>4. Plus EState, MACCS, PubChem, FP4</td>
+          <td class="num">0.868</td><td class="num">0.812</td><td class="num">0.925</td>
+          <td class="num">0.742</td><td class="num">0.953</td>
+        </tr>
+        <tr>
+          <td>5. Twenty base models kept by training MCC</td>
+          <td class="num">0.850</td><td class="num">0.857</td><td class="num">0.842</td>
+          <td class="num">0.699</td><td class="num">0.948</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Training out-of-fold MCC of the stronger base models: hgb:ctd 0.726, hgb:seq+dpc 0.719, hgb:seq 0.709, hgb:estate 0.709.
+      FP4 peaks at 0.589 and AAI at 0.612. Moving the cut from 0.50 to 0.36 raises sensitivity to 0.895 and lowers specificity to 0.812, so MCC falls to 0.709.
+    </p>
+
     <footer>
       Data: TR/TS pos/neg from http://pmlabstack.pythonanywhere.com/static/ , checked at 532/532/133/133.
       AUC is Mann–Whitney with average ranks for ties.

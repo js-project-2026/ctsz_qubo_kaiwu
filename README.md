@@ -169,4 +169,5 @@ Notebook: Ocean |F\*|=51, E=−0.7813; Kaiwu overlap 31/50; Q∩L 15/50.
 
 DPP-IV inhibitory peptides on the published 532+532 / 133+133 split: [`docs/compare-stackdppiv-2022.html`](docs/compare-stackdppiv-2022.html) · [中文](docs/compare-stackdppiv-2022.zh.html).
 Histogram gradient boosting on sequence features plus dipeptide composition reaches independent-test MCC 0.752 and AUC 0.949 (paper Table 3: MCC 0.784, AUC 0.961). The same model plus log(length) reaches AUC 0.960.
+`dppiv_opt.py` then locks a threshold, a stack, CTD/PAAC/APAAC/AAI, and EState/MACCS/PubChem/FP4 on training out-of-fold MCC. The selected 20-model stack scores MCC 0.699. The full 33-model stack matches the paper's specificity at 0.925, with MCC 0.742 and AUC 0.953.
 
