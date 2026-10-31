@@ -23,6 +23,9 @@ The training problem is
 with x_i the training-set z-score of phi(s_i). L-BFGS solves it. lambda
 is chosen by stratified 5-fold MCC on the training set only. The
 independent test set is scored once, at probability 0.5.
+
+Run with ``--download`` to fetch the authors' own split, or pass the
+four FASTA paths explicitly.
 """
 
 from __future__ import annotations
@@ -38,6 +41,38 @@ AA_INDEX = {aa: i for i, aa in enumerate(AA)}
 N_AA = len(AA)
 SEQ_DIM = 4 * N_AA  # AAC, N1, N2, C
 LAMBDAS = (1e-3, 1e-2, 1e-1, 1.0, 10.0)
+
+DATA_BASE = "http://pmlabstack.pythonanywhere.com/static"
+DATA_FILES = {
+    "train_pos": "TR_pos_dppiv.txt",
+    "train_neg": "TR_neg_dppiv.txt",
+    "test_pos": "TS_pos_dppiv.txt",
+    "test_neg": "TS_neg_dppiv.txt",
+}
+# Counts stated in the paper: 80:20 split of 665 positives and 665 negatives.
+EXPECTED_COUNTS = {"train_pos": 532, "train_neg": 532, "test_pos": 133, "test_neg": 133}
+
+
+def download_dataset(folder: Path) -> dict[str, Path]:
+    """Fetch the four FASTA files published with StackDPPIV into ``folder``."""
+    import urllib.request
+
+    folder.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for key, name in DATA_FILES.items():
+        target = folder / name
+        if not target.is_file():
+            url = f"{DATA_BASE}/{name}"
+            print(f"Downloading {url}", flush=True)
+            with urllib.request.urlopen(url, timeout=60) as response:
+                target.write_bytes(response.read())
+        n_seqs = len(parse_fasta(target))
+        if n_seqs != EXPECTED_COUNTS[key]:
+            raise RuntimeError(
+                f"{name} has {n_seqs} sequences, expected {EXPECTED_COUNTS[key]}"
+            )
+        paths[key] = target
+    return paths
 
 
 def parse_fasta(path: Path) -> list[str]:
@@ -281,11 +316,43 @@ def run(train_pos, train_neg, test_pos, test_neg) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--train-pos", type=Path, required=True)
-    parser.add_argument("--train-neg", type=Path, required=True)
-    parser.add_argument("--test-pos", type=Path, required=True)
-    parser.add_argument("--test-neg", type=Path, required=True)
+    parser.add_argument(
+        "--download",
+        action="store_true",
+        help="Fetch the four published FASTA files instead of passing paths",
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=Path,
+        default=Path("data/dppiv"),
+        help="Where --download caches the FASTA files",
+    )
+    parser.add_argument("--train-pos", type=Path)
+    parser.add_argument("--train-neg", type=Path)
+    parser.add_argument("--test-pos", type=Path)
+    parser.add_argument("--test-neg", type=Path)
     args = parser.parse_args()
+    if args.download:
+        paths = download_dataset(args.data_dir)
+        run(
+            paths["train_pos"],
+            paths["train_neg"],
+            paths["test_pos"],
+            paths["test_neg"],
+        )
+        return
+    missing = [
+        name
+        for name, value in (
+            ("--train-pos", args.train_pos),
+            ("--train-neg", args.train_neg),
+            ("--test-pos", args.test_pos),
+            ("--test-neg", args.test_neg),
+        )
+        if value is None
+    ]
+    if missing:
+        parser.error(f"Pass --download or all of: {', '.join(missing)}")
     run(args.train_pos, args.train_neg, args.test_pos, args.test_neg)
 
 
