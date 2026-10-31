@@ -3,9 +3,11 @@
 import numpy as np
 
 from dppiv_logit import (
+    balance_indices,
     binary_metrics,
     feature_matrix,
     fit_predict,
+    length_bin_name,
     sequence_features,
 )
 
@@ -19,6 +21,28 @@ def test_composition_sums_to_one_and_second_residue_is_marked():
     assert X[1, 40:60].sum() == 0.0
     # Second residue of "KP" is P. P is index 12 in ACDEFGHIKLMNPQRSTVWY.
     assert X[0, 40 + 12] == 1.0
+
+
+def test_dipeptide_composition_sums_to_one_and_names_pairs():
+    X = feature_matrix(["KPW", "A"], "dpc")
+    assert X.shape == (2, 400)
+    assert abs(X[0].sum() - 1.0) < 1e-12
+    assert X[1].sum() == 0.0
+    # K is index 8 and P is index 12, so KP is entry 8*20+12.
+    assert abs(X[0, 8 * 20 + 12] - 0.5) < 1e-12
+    combined = feature_matrix(["KPW"], "seq+dpc+len")
+    assert combined.shape == (1, 80 + 400 + 1)
+
+
+def test_length_balance_keeps_equal_counts_inside_each_bin():
+    lengths = np.array([2, 2, 3, 20, 20, 20])
+    y = np.array([1, 1, 0, 0, 0, 1])
+    keep = balance_indices(lengths, y, seed=0)
+    assert length_bin_name(2) == "2-5"
+    assert length_bin_name(11) == "11+"
+    assert (y[keep] == 1).sum() == (y[keep] == 0).sum()
+    # One positive and one negative from each occupied bin.
+    assert keep.size == 4
 
 
 def test_length_feature_is_log_length():
