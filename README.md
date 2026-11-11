@@ -33,8 +33,8 @@ Local solvers: D-Wave Ocean `TabuSampler` / `SimulatedAnnealingSampler` (**class
 | `docs/compare-romero-2025.zh.html` | Same report in Chinese, including GSE308682 train/test split |
 | `docs/compare-stackdppiv-2022.html` | DPP-IV independent test vs StackDPPIV Table 3 (English) |
 | `docs/compare-stackdppiv-2022.zh.html` | Same DPP-IV report in Chinese: DPC, RBF, boosting, length bins |
-| `docs/algorithm-overview.zh.html` | 四页幻灯：统一的 0/1 二次筛选模型、核心机制、创新点、结果与 CIM 的位置 |
-| `docs/make_overview_art.py` | Renders `docs/assets/energy-landscape.png` for that deck |
+| `docs/algorithm-overview.zh.html` | 七页幻灯：统一的 0/1 二次筛选模型、三类任务的生物学含义、完整目标函数与约束、采样机制、创新点、对照图表、真机与价值 |
+| `docs/make_overview_art.py` | Renders the deck's artwork and its four charts into `docs/assets/` |
 | `docs/briefing-qubo-effort.html` | Bilingual progress report: k=50 at 5,000 genes, charts, optional CIM compare |
 | `docs/cim-quota-request.zh.md` | 光子 CIM 真机算力申请文案（可直接提交） |
 | `docs_v2/` | Fetal Smart-seq2 QUBO vs Ranzoni/Cvejic (English + Chinese; charts + CIM/ARES) |
