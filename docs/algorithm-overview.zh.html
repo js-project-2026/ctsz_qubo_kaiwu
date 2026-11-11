@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1280" />
+  <title>统一的 0/1 二次筛选模型：基因面板、候选多肽与多基因组合</title>
+  <style>
+    :root {
+      --ink: #16151a;
+      --muted: #6b6760;
+      --line: #e3ddd1;
+      --gold: #e8930c;
+      --gold-soft: #f6b94a;
+      --gold-deep: #a96500;
+      --ok: #1f6b4a;
+      --bad: #9b2c2c;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #e9e6df; }
+    body {
+      font: 15px/1.6 "Noto Sans SC", "PingFang SC", "Hiragino Sans GB",
+            "WenQuanYi Micro Hei", "Microsoft YaHei", ui-sans-serif, sans-serif;
+      color: var(--ink);
+    }
+    .slide {
+      position: relative;
+      width: 1280px;
+      height: 720px;
+      overflow: hidden;
+      background: #fff;
+      background-image:
+        radial-gradient(900px 420px at 52% 58%, #fffaf0 0%, rgba(255, 255, 255, 0) 70%);
+      padding: 34px 48px 0;
+    }
+    .eyebrow {
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.04em;
+      margin: 0 0 2px;
+    }
+    h1 {
+      font-size: 2.05rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      margin: 0 0 8px;
+    }
+    h1 em { font-style: normal; color: var(--gold-deep); }
+    .sub {
+      font-size: 0.92rem;
+      color: var(--muted);
+      margin: 0;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .sub b { color: var(--ink); font-weight: 600; }
+    .foot {
+      position: absolute;
+      left: 48px;
+      right: 48px;
+      bottom: 26px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fffdf8;
+      padding: 12px 18px;
+      font-size: 0.95rem;
+      text-align: center;
+    }
+    .foot b { color: var(--gold-deep); }
+    .stage { position: absolute; inset: 156px 48px 92px; }
+
+    /* slide 1 */
+    .ring-art {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 660px;
+      transform: translate(-50%, -50%);
+      opacity: 0.95;
+      pointer-events: none;
+    }
+    .claim { position: absolute; left: 0; top: 18px; width: 300px; }
+    .claim .big {
+      font-size: 2.6rem;
+      font-weight: 800;
+      line-height: 1.12;
+      letter-spacing: -0.02em;
+      margin: 0 0 6px;
+    }
+    .claim .big span { color: var(--gold-deep); }
+    .claim .line { font-size: 1.02rem; font-weight: 600; margin: 0 0 10px; }
+    .claim p { font-size: 0.86rem; color: var(--muted); margin: 0 0 8px; }
+    .formula {
+      display: inline-block;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffdf8;
+      padding: 8px 12px;
+      font-size: 1.02rem;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+    .step { position: absolute; width: 268px; }
+    .step .no {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--gold);
+      line-height: 1;
+      margin-bottom: 2px;
+    }
+    .step h3 { font-size: 0.98rem; margin: 0 0 3px; }
+    .step p { font-size: 0.8rem; color: var(--muted); margin: 0; }
+    .s01 { left: 352px; top: 0; }
+    .s02 { left: 744px; top: 10px; }
+    .s03 { left: 1000px; top: 156px; width: 232px; }
+    .s04 { left: 1000px; top: 312px; width: 232px; }
+    .s05 { left: 560px; top: 386px; }
+    .s06 { left: 232px; top: 300px; }
+
+    /* slide 2 */
+    .flow {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1.1fr 1fr 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+    .col h3 {
+      font-size: 0.98rem;
+      margin: 0 0 6px;
+      color: var(--gold-deep);
+    }
+    .col ul { margin: 0; padding-left: 16px; }
+    .col li { font-size: 0.8rem; color: var(--muted); margin-bottom: 5px; }
+    .col li b { color: var(--ink); font-weight: 600; }
+    .mid { text-align: center; }
+    .mid .formula { font-size: 1.1rem; margin-bottom: 6px; }
+    .note { font-size: 0.78rem; color: var(--muted); }
+    .col { position: relative; z-index: 1; padding-right: 10px; }
+    .col:not(:last-child)::after {
+      content: "›";
+      position: absolute;
+      right: -12px;
+      top: -2px;
+      font-size: 1.35rem;
+      color: var(--gold-soft);
+    }
+    .hero-art {
+      position: absolute;
+      left: 50%;
+      bottom: -42px;
+      width: 720px;
+      transform: translateX(-50%);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* slide 3 */
+    .grid3 {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1.08fr;
+      gap: 14px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      padding: 13px 15px;
+    }
+    .card.gold { border-color: #f0cf96; background: #fffaf0; }
+    .card h3 { font-size: 0.96rem; margin: 0 0 2px; }
+    .card .tag {
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.03em;
+      margin-bottom: 6px;
+    }
+    .card p { font-size: 0.79rem; color: var(--muted); margin: 0 0 7px; }
+    .card b { color: var(--ink); }
+    .kv { font-size: 0.78rem; margin: 0 0 7px; }
+    .kv div { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+    .kv span { color: var(--muted); }
+    .kv em { font-style: normal; font-weight: 600; }
+    .flag {
+      display: inline-block;
+      font-size: 0.72rem;
+      border-radius: 999px;
+      padding: 1px 8px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+    }
+    .flag.ok { color: var(--ok); border-color: #bcd9c9; background: #f1f8f4; }
+    .flag.warn { color: var(--gold-deep); border-color: #f0cf96; background: #fff6e6; }
+    .five {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 13px;
+    }
+    .five .card { padding: 14px 15px; }
+    .five h3 { font-size: 1.02rem; margin: 0 0 8px; }
+    .five p { font-size: 0.81rem; margin: 0 0 8px; }
+    .was { color: #a6a097; }
+    .is { color: var(--ink); }
+    .why { color: var(--gold-deep); font-weight: 600; }
+    .wm {
+      position: absolute;
+      right: 48px;
+      top: 30px;
+      font-size: 0.78rem;
+      color: #b7b1a6;
+      text-align: right;
+      line-height: 1.35;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ================= 1 ================= -->
+<section class="slide" id="s1">
+  <div class="wm">超体智汇 · QUBO 筛选框架<br />2026-11</div>
+  <p class="eyebrow">统一算法框架</p>
+  <h1>一个 0/1 二次模型，覆盖<em>三类筛选任务</em></h1>
+  <p class="sub">
+    选基因面板 · 选候选多肽 · 选多基因组合 ｜
+    目标显式写成 <b>价值 − 冗余</b>，规模与载体容量写进目标，<b>每个入选项可追溯</b>
+  </p>
+
+  <div class="stage">
+    <img class="ring-art" src="assets/energy-landscape.png" alt="多谷底的目标函数景观" />
+
+    <div class="claim">
+      <p class="big">同构<span>。</span></p>
+      <p class="line">三类任务，同一个表达式</p>
+      <span class="formula">min xᵀQx &nbsp;&nbsp; x ∈ {0,1}ⁿ</span>
+      <p style="margin-top:10px">
+        从有限的已有证据出发，在硬约束内挑出一个小而互补的子集。
+        换任务只换 Q 的两项含义，不换求解方式。
+      </p>
+    </div>
+
+    <div class="step s01">
+      <div class="no">01</div>
+      <h3>定义价值</h3>
+      <p>每个候选对任务目标的贡献：与表型的互信息、功能实验证据、模型给出的概率。</p>
+    </div>
+    <div class="step s02">
+      <div class="no">02</div>
+      <h3>定义冗余</h3>
+      <p>候选之间的重复：基因间相关性、肽的序列家族、作用机制重叠。</p>
+    </div>
+    <div class="step s03">
+      <div class="no">03</div>
+      <h3>组装 Q</h3>
+      <p>Q = (1−α)R − α·diag(I)。规模 k、AAV 容量、表达方式作为约束一并进入。</p>
+    </div>
+    <div class="step s04">
+      <div class="no">04</div>
+      <h3>经典锁定参数</h3>
+      <p>α 用二分搜索定到目标规模（胎肝 0.3203、小胶质 0.3662）；阈值与权重在训练集上定死。</p>
+    </div>
+    <div class="step s05">
+      <div class="no">05</div>
+      <h3>求解与采样</h3>
+      <p>禁忌搜索 / 遗传算法 / MQLib / Ocean，以及玻色量子 CIM 真机采样。</p>
+    </div>
+    <div class="step s06">
+      <div class="no">06</div>
+      <h3>独立验证并回流</h3>
+      <p>LASSO 与随机森林对照、论文独立测试集只评一次、湿实验结果写回证据表。</p>
+    </div>
+  </div>
+
+  <div class="foot">
+    参数在经典侧锁定，硬件只负责采样；能量始终在<b>原始浮点 Q</b> 上评分，硬件解与经典解因此可以直接比较。
+  </div>
+</section>
+
+<!-- ================= 2 ================= -->
+<section class="slide" id="s2">
+  <div class="wm">核心机制</div>
+  <p class="eyebrow">核心机制</p>
+  <h1>价值与冗余，如何变成<em>一张能量景观</em></h1>
+  <p class="sub">
+    三类输入 → 统一编码 → <b>min xᵀQx</b> → 多组近优解 → 一份可以交给实验室的候选名单
+  </p>
+
+  <div class="stage">
+    <img class="hero-art" src="assets/energy-landscape.png" alt="多个谷底的目标函数景观" />
+
+    <div class="flow">
+      <div class="col">
+        <h3>多场景输入</h3>
+        <ul>
+          <li><b>单细胞表达矩阵</b><br />胎肝造血 4,463 细胞 / 2,500 基因；小胶质 GSE198531 / 15,156 基因</li>
+          <li><b>多肽序列</b><br />公开划分 532+532 训练、133+133 测试；自测文库 69,415 条</li>
+          <li><b>基因证据表</b><br />Gene × Action × Context，每条带文献编号</li>
+        </ul>
+      </div>
+
+      <div class="col">
+        <h3>统一编码</h3>
+        <ul>
+          <li><b>价值项 diag(I)</b>：互信息、功能实验等级、分类概率</li>
+          <li><b>冗余项 R</b>：表达相关性、序列家族、机制重叠</li>
+          <li><b>约束项</b>：面板规模 k、AAV 容量 bp、过表达可行性</li>
+          <li>三者在同一个矩阵里，不做事后过滤</li>
+        </ul>
+      </div>
+
+      <div class="col mid">
+        <h3>能量景观</h3>
+        <span class="formula">min xᵀQx</span>
+        <p class="note" style="margin-top:8px">
+          x ∈ {0,1}ⁿ，选或不选。<br />
+          多个谷底 = 多组同样合格的子集；<br />
+          要的是一批候选，不是唯一解。
+        </p>
+      </div>
+
+      <div class="col">
+        <h3>求解与采样</h3>
+        <ul>
+          <li><b>经典</b>：禁忌搜索、遗传算法、MQLib、Ocean，用来锁定基线</li>
+          <li><b>玻色量子 CIM</b>：物理机器直接对应 Ising/QUBO，一次运行返回多组近优解</li>
+          <li>两边都在原始浮点 Q 上评分，同一把尺</li>
+        </ul>
+      </div>
+
+      <div class="col">
+        <h3>输出</h3>
+        <ul>
+          <li><b>50 基因面板</b>：下游回归与通路分析</li>
+          <li><b>25 条待测肽</b>：合成并测 IC50</li>
+          <li><b>多基因组合</b>：装进单个 AAV 的候选构型（设计中）</li>
+          <li>每一项都能回到它的价值来源与冗余对象</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    显式的「价值 − 冗余」让每个入选项都能被追问：<b>它贡献了什么，又和谁重复</b>；黑箱打分回答不了这两个问题。
+  </div>
+</section>
+
+<!-- ================= 3 ================= -->
+<section class="slide" id="s3">
+  <div class="wm">创新性与独一性</div>
+  <p class="eyebrow">创新性 · 独一性 · 特点</p>
+  <h1>与常规做法相比，<em>差别在五处</em></h1>
+  <p class="sub">
+    每一处都对应一个可以核对的数字或一条可以追溯的记录，<b>不是方法学口号</b>
+  </p>
+
+  <div class="stage">
+    <div class="five">
+      <div class="card">
+        <div class="tag">01 · 同构</div>
+        <h3>一个模型，三类任务</h3>
+        <p class="was">常规：每类任务各写一套评分与流程。</p>
+        <p class="is">我们：都写成 min xᵀQx，换任务只换 I 与 R 的含义。</p>
+        <p class="why">求解器、精度分析与硬件通路建一次，三处复用。</p>
+      </div>
+      <div class="card">
+        <div class="tag">02 · 冗余进目标</div>
+        <h3>价值减去重复</h3>
+        <p class="was">常规：按单项显著性排序，取前 k 个。</p>
+        <p class="is">我们：冗余项 R 直接出现在目标里，入选项彼此互补。</p>
+        <p class="why">小胶质面板回归 MSE 0.0210，全基因 0.0253。</p>
+      </div>
+      <div class="card">
+        <div class="tag">03 · 约束前置</div>
+        <h3>先问做不做得出来</h3>
+        <p class="was">常规：先挑最优，再看容量、递送、合成能不能实现。</p>
+        <p class="is">我们：规模 k、AAV 容量 bp、过表达可行性是约束。</p>
+        <p class="why">输出直接是可执行构型，不靠事后淘汰。</p>
+      </div>
+      <div class="card">
+        <div class="tag">04 · 验证分离</div>
+        <h3>测试集只评一次</h3>
+        <p class="was">常规：看着测试集反复调参数与阈值。</p>
+        <p class="is">我们：阈值固定 0.50，特征与模型在训练集交叉验证上定死。</p>
+        <p class="why">ACC 0.891 / MCC 0.783 是一次评分的结果。</p>
+      </div>
+      <div class="card">
+        <div class="tag">05 · 同一把尺</div>
+        <h3>硬件与经典可比</h3>
+        <p class="was">常规：硬件结果换一套口径宣传。</p>
+        <p class="is">我们：都在原始浮点 Q 上评能量，真机原始解与精修解分开列。</p>
+        <p class="why">与 Ocean 相差 0.16%、重叠 45/50，是可核对的数字。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    独一之处不在某个单点技巧，而在<b>把三类筛选问题收敛到同一个可解释、可追溯、带硬约束的目标函数</b>上。
+  </div>
+</section>
+
+<!-- ================= 4 ================= -->
+<section class="slide" id="s4">
+  <div class="wm">验证与硬件</div>
+  <p class="eyebrow">已验证的结果 · 玻色量子的位置</p>
+  <h1>同一框架下的三组结果，与 <em>CIM 的意义</em></h1>
+  <p class="sub">
+    公开数据、公开划分、独立对照；硬件结果与经典结果<b>分开列出</b>，不混为一次运行
+  </p>
+
+  <div class="stage">
+    <div class="grid3">
+      <div class="card">
+        <div class="tag">场景一 · 单细胞基因面板</div>
+        <h3>50 个基因替代全转录组</h3>
+        <div class="kv">
+          <div><span>胎肝造血 · Ocean 禁忌</span><em>50 基因，E = −1.5888</em></div>
+          <div><span>小胶质 · 禁忌</span><em>50 基因，E = −1.2534</em></div>
+          <div><span>小胶质 · 遗传算法</span><em>51 基因，重叠 41/50</em></div>
+        </div>
+        <p>
+          小胶质面板回归 MSE 0.0210，LASSO 0.0177，随机森林 0.0220，全基因 0.0253。
+          面板比全基因好，仍不及 LASSO。
+        </p>
+        <span class="flag ok">已验证</span>
+      </div>
+
+      <div class="card">
+        <div class="tag">场景二 · 候选多肽</div>
+        <h3>单模型追平 50 模型堆叠</h3>
+        <div class="kv">
+          <div><span>本方法 ACC / MCC</span><em>0.891 / 0.783</em></div>
+          <div><span>StackDPPIV ACC / MCC</span><em>0.891 / 0.784</em></div>
+          <div><span>灵敏度 Sn</span><em>0.872 · 论文 0.857</em></div>
+        </div>
+        <p>
+          同一公开划分，独立测试集只评一次。论文是 10 编码 × 5 算法共 50 个概率特征再堆叠，
+          本方法是<b>单个提升树</b>，输入含 N 端第一个二肽。
+        </p>
+        <span class="flag ok">已验证</span>
+      </div>
+
+      <div class="card">
+        <div class="tag">场景三 · 多基因组合</div>
+        <h3>装得进一个载体的组合</h3>
+        <div class="kv">
+          <div><span>价值</span><em>功能实验证据等级</em></div>
+          <div><span>冗余</span><em>治疗维度重叠</em></div>
+          <div><span>约束</span><em>AAV 容量 bp</em></div>
+        </div>
+        <p>
+          证据表按 Gene × Action × Context 组织，过表达与敲除分开记。
+          容量与表达方式在求解时就是约束，不是事后筛。
+        </p>
+        <span class="flag warn">设计中，未求解</span>
+      </div>
+
+      <div class="card gold">
+        <div class="tag">玻色量子 CIM 的意义</div>
+        <h3>一次采样，给出一批候选</h3>
+        <p>
+          <b>已验证：</b>14-bit 真机、2,500 基因的锁定 Q。原始解 315 个基因、E = +9.8033；
+          经 1-bit 精修后 48 个基因、E = −1.5862，与 Ocean 的 −1.5888 相差 0.16%，重叠 45/50。
+        </p>
+        <p>
+          <b>现实限制：</b>8-bit 直接提交出现全零解与正能量解，原因是<b>动态范围</b>，不是问题规模；
+          需要范围适配与精修。
+        </p>
+        <p>
+          <b>价值在规模：</b>MQLib 在 120 秒预算内只收到 27 个基因、仍有 1,209 个可改进方向。
+          基因池扩到上万、组合项增多时，经典预算跑不完；CIM 的路径是把求解从「跑不完」变成「一次采样」。
+        </p>
+        <span class="flag warn">硬件：范围适配 + 1-bit 精修</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <b>经典锁定参数，玻色采样给候选，实验给结论。</b>
+    三件事分开，所以每一个数字都能说清它来自哪一步。
+  </div>
+</section>
+
+</body>
+</html>
