@@ -8,11 +8,13 @@
     :root {
       --ink: #16151a;
       --muted: #6b6760;
+      --faint: #a6a097;
       --line: #e3ddd1;
       --gold: #e8930c;
       --gold-soft: #f6b94a;
       --gold-deep: #a96500;
       --ok: #1f6b4a;
+      --blue: #3a5f94;
       --bad: #9b2c2c;
     }
     * { box-sizing: border-box; }
@@ -33,190 +35,161 @@
       padding: 34px 48px 0;
     }
     .eyebrow {
-      font-size: 0.86rem;
-      font-weight: 700;
-      color: var(--gold);
-      letter-spacing: 0.04em;
-      margin: 0 0 2px;
+      font-size: 0.86rem; font-weight: 700; color: var(--gold);
+      letter-spacing: 0.04em; margin: 0 0 2px;
     }
-    h1 {
-      font-size: 2.05rem;
-      font-weight: 800;
-      letter-spacing: -0.01em;
-      margin: 0 0 8px;
-    }
+    h1 { font-size: 2.0rem; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 8px; }
     h1 em { font-style: normal; color: var(--gold-deep); }
     .sub {
-      font-size: 0.92rem;
-      color: var(--muted);
-      margin: 0;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--line);
+      font-size: 0.9rem; color: var(--muted); margin: 0;
+      padding-bottom: 12px; border-bottom: 1px solid var(--line);
     }
     .sub b { color: var(--ink); font-weight: 600; }
     .foot {
-      position: absolute;
-      left: 48px;
-      right: 48px;
-      bottom: 26px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: #fffdf8;
-      padding: 12px 18px;
-      font-size: 0.95rem;
-      text-align: center;
+      position: absolute; left: 48px; right: 48px; bottom: 24px;
+      border: 1px solid var(--line); border-radius: 10px; background: #fffdf8;
+      padding: 11px 18px; font-size: 0.93rem; text-align: center;
     }
     .foot b { color: var(--gold-deep); }
-    .stage { position: absolute; inset: 156px 48px 92px; }
-
-    /* slide 1 */
-    .ring-art {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 660px;
-      transform: translate(-50%, -50%);
-      opacity: 0.95;
-      pointer-events: none;
+    .stage { position: absolute; inset: 156px 48px 86px; }
+    .wm {
+      position: absolute; right: 48px; top: 30px; font-size: 0.76rem;
+      color: #b7b1a6; text-align: right; line-height: 1.35;
     }
-    .claim { position: absolute; left: 0; top: 18px; width: 300px; }
-    .claim .big {
-      font-size: 2.6rem;
-      font-weight: 800;
-      line-height: 1.12;
-      letter-spacing: -0.02em;
-      margin: 0 0 6px;
-    }
-    .claim .big span { color: var(--gold-deep); }
-    .claim .line { font-size: 1.02rem; font-weight: 600; margin: 0 0 10px; }
-    .claim p { font-size: 0.86rem; color: var(--muted); margin: 0 0 8px; }
     .formula {
-      display: inline-block;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #fffdf8;
-      padding: 8px 12px;
-      font-size: 1.02rem;
+      display: inline-block; border: 1px solid var(--line); border-radius: 8px;
+      background: #fffdf8; padding: 8px 12px; font-size: 1.0rem;
       font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
     }
-    .step { position: absolute; width: 268px; }
-    .step .no {
-      font-size: 1.3rem;
-      font-weight: 800;
-      color: var(--gold);
-      line-height: 1;
-      margin-bottom: 2px;
-    }
-    .step h3 { font-size: 0.98rem; margin: 0 0 3px; }
-    .step p { font-size: 0.8rem; color: var(--muted); margin: 0; }
-    .s01 { left: 352px; top: 0; }
-    .s02 { left: 744px; top: 10px; }
-    .s03 { left: 1000px; top: 156px; width: 232px; }
-    .s04 { left: 1000px; top: 312px; width: 232px; }
-    .s05 { left: 560px; top: 386px; }
-    .s06 { left: 232px; top: 300px; }
-
-    /* slide 2 */
-    .flow {
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      display: grid;
-      grid-template-columns: 1fr 1fr 1.1fr 1fr 1fr;
-      gap: 14px;
-      align-items: start;
-    }
-    .col h3 {
-      font-size: 0.98rem;
-      margin: 0 0 6px;
-      color: var(--gold-deep);
-    }
-    .col ul { margin: 0; padding-left: 16px; }
-    .col li { font-size: 0.8rem; color: var(--muted); margin-bottom: 5px; }
-    .col li b { color: var(--ink); font-weight: 600; }
-    .mid { text-align: center; }
-    .mid .formula { font-size: 1.1rem; margin-bottom: 6px; }
-    .note { font-size: 0.78rem; color: var(--muted); }
-    .col { position: relative; z-index: 1; padding-right: 10px; }
-    .col:not(:last-child)::after {
-      content: "›";
-      position: absolute;
-      right: -12px;
-      top: -2px;
-      font-size: 1.35rem;
-      color: var(--gold-soft);
-    }
-    .hero-art {
-      position: absolute;
-      left: 50%;
-      bottom: -42px;
-      width: 720px;
-      transform: translateX(-50%);
-      z-index: 0;
-      pointer-events: none;
-    }
-
-    /* slide 3 */
-    .grid3 {
-      position: absolute;
-      inset: 0;
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr 1.08fr;
-      gap: 14px;
-    }
     .card {
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: #fff;
+      border: 1px solid var(--line); border-radius: 10px; background: #fff;
       padding: 13px 15px;
     }
     .card.gold { border-color: #f0cf96; background: #fffaf0; }
-    .card h3 { font-size: 0.96rem; margin: 0 0 2px; }
-    .card .tag {
-      font-size: 0.74rem;
-      font-weight: 700;
-      color: var(--gold);
-      letter-spacing: 0.03em;
-      margin-bottom: 6px;
+    .card h3 { font-size: 0.96rem; margin: 0 0 4px; }
+    .tag {
+      font-size: 0.73rem; font-weight: 700; color: var(--gold);
+      letter-spacing: 0.03em; margin-bottom: 6px;
     }
-    .card p { font-size: 0.79rem; color: var(--muted); margin: 0 0 7px; }
-    .card b { color: var(--ink); }
-    .kv { font-size: 0.78rem; margin: 0 0 7px; }
-    .kv div { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
-    .kv span { color: var(--muted); }
-    .kv em { font-style: normal; font-weight: 600; }
     .flag {
-      display: inline-block;
-      font-size: 0.72rem;
-      border-radius: 999px;
-      padding: 1px 8px;
-      border: 1px solid var(--line);
-      color: var(--muted);
+      display: inline-block; font-size: 0.71rem; border-radius: 999px;
+      padding: 1px 8px; border: 1px solid var(--line); color: var(--muted);
     }
     .flag.ok { color: var(--ok); border-color: #bcd9c9; background: #f1f8f4; }
     .flag.warn { color: var(--gold-deep); border-color: #f0cf96; background: #fff6e6; }
-    .five {
-      position: absolute;
-      inset: 0;
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 13px;
+
+    /* 1 — framework loop */
+    .ring-art {
+      position: absolute; left: 50%; top: 52%; width: 620px;
+      transform: translate(-50%, -50%); opacity: 0.95; pointer-events: none;
     }
+    .claim { position: absolute; left: 0; top: 6px; width: 300px; z-index: 2; }
+    .claim .big {
+      font-size: 2.5rem; font-weight: 800; line-height: 1.1;
+      letter-spacing: -0.02em; margin: 0 0 6px;
+    }
+    .claim .big span { color: var(--gold-deep); }
+    .claim .line { font-size: 1.0rem; font-weight: 600; margin: 0 0 8px; }
+    .claim p { font-size: 0.83rem; color: var(--muted); margin: 8px 0 0; }
+    .step { position: absolute; width: 262px; z-index: 2; }
+    .step .no { font-size: 1.25rem; font-weight: 800; color: var(--gold); line-height: 1; }
+    .step h3 { font-size: 0.95rem; margin: 2px 0 3px; }
+    .step p { font-size: 0.78rem; color: var(--muted); margin: 0; }
+    .s01 { left: 350px; top: 0; }
+    .s02 { left: 742px; top: 6px; }
+    .s03 { left: 1002px; top: 150px; width: 230px; }
+    .s04 { left: 1002px; top: 300px; width: 230px; }
+    .s05 { left: 556px; top: 382px; }
+    .s06 { left: 228px; top: 296px; }
+
+    /* 2 — three tasks, one encoding */
+    .tasks { position: absolute; inset: 0; display: grid;
+             grid-template-columns: 112px repeat(3, 1fr); gap: 0 12px; align-content: start; }
+    .tasks .rh { font-size: 0.78rem; color: var(--faint); padding: 7px 0; border-top: 1px solid var(--line); }
+    .tasks .cell { font-size: 0.82rem; padding: 7px 10px; border-top: 1px solid var(--line); }
+    .tasks .head { border-top: 0; padding-bottom: 10px; }
+    .tasks .head h3 { font-size: 1.0rem; margin: 0 0 2px; }
+    .tasks .head .tag { margin: 0; }
+    .tasks .cell b { color: var(--gold-deep); }
+    .tasks .cell.num { font-family: ui-monospace, Menlo, monospace; font-size: 0.86rem; }
+    .lattice-art {
+      position: absolute; left: 50%; bottom: -26px; width: 1010px;
+      transform: translateX(-50%); opacity: 0.13; z-index: 0; pointer-events: none;
+    }
+
+    /* 3 — objective */
+    .mathwrap { position: absolute; inset: 0; display: grid;
+                grid-template-columns: 1.02fr 0.98fr; gap: 20px; z-index: 1; }
+    .eq {
+      border: 1px solid #f0cf96; border-radius: 10px; background: #fffaf0;
+      padding: 14px 16px; font-family: ui-monospace, Menlo, monospace;
+      font-size: 0.95rem; line-height: 1.85;
+    }
+    .eq .op { color: var(--gold-deep); font-weight: 700; }
+    .eq .note { font-family: inherit; font-size: 0.74rem; color: var(--muted); }
+    .terms { list-style: none; margin: 10px 0 0; padding: 0; }
+    .terms li { font-size: 0.82rem; margin-bottom: 7px; padding-left: 86px; position: relative; }
+    .terms code {
+      position: absolute; left: 0; top: 1px; width: 78px;
+      font-family: ui-monospace, Menlo, monospace; font-size: 0.78rem; color: var(--gold-deep);
+    }
+    .terms span { color: var(--muted); }
+    .graph-art {
+      position: absolute; right: -40px; bottom: -30px; width: 560px;
+      opacity: 0.2; z-index: 0; pointer-events: none;
+    }
+
+    /* 4 — landscape and sampling */
+    .hero-art {
+      position: absolute; left: 50%; bottom: -34px; width: 700px;
+      transform: translateX(-50%); z-index: 0; pointer-events: none;
+    }
+    .flow { position: absolute; inset: 0; z-index: 1; display: grid;
+            grid-template-columns: repeat(4, 1fr); gap: 16px; align-content: start; }
+    .col { position: relative; z-index: 1; padding-right: 10px; }
+    .col:not(:last-child)::after {
+      content: "›"; position: absolute; right: -10px; top: -2px;
+      font-size: 1.3rem; color: var(--gold-soft);
+    }
+    .col h3 { font-size: 0.96rem; margin: 0 0 6px; color: var(--gold-deep); }
+    .col ul { margin: 0; padding-left: 16px; }
+    .col li { font-size: 0.79rem; color: var(--muted); margin-bottom: 5px; }
+    .col li b { color: var(--ink); font-weight: 600; }
+
+    /* 5 — five differences */
+    .five { position: absolute; inset: 0; display: grid;
+            grid-template-columns: repeat(5, 1fr); gap: 13px; }
     .five .card { padding: 14px 15px; }
-    .five h3 { font-size: 1.02rem; margin: 0 0 8px; }
-    .five p { font-size: 0.81rem; margin: 0 0 8px; }
-    .was { color: #a6a097; }
+    .five h3 { font-size: 1.0rem; margin: 0 0 8px; }
+    .five p { font-size: 0.8rem; margin: 0 0 8px; }
+    .was { color: var(--faint); }
     .is { color: var(--ink); }
     .why { color: var(--gold-deep); font-weight: 600; }
-    .wm {
-      position: absolute;
-      right: 48px;
-      top: 30px;
-      font-size: 0.78rem;
-      color: #b7b1a6;
-      text-align: right;
-      line-height: 1.35;
+    .wide-art {
+      position: absolute; left: 50%; bottom: -40px; width: 880px;
+      transform: translateX(-50%); opacity: 0.16; z-index: 0; pointer-events: none;
     }
+
+    /* 6 — charts */
+    .charts { position: absolute; inset: 0; display: grid; align-items: start;
+              grid-template-columns: 1fr 1fr 1.08fr; gap: 14px; }
+    .chart { border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 12px 13px; }
+    .chart h3 { font-size: 0.92rem; margin: 0 0 2px; }
+    .chart .cap { font-size: 0.76rem; color: var(--muted); margin: 0 0 6px; }
+    .chart img { width: 100%; display: block; }
+    .chart .read { font-size: 0.77rem; color: var(--muted); margin: 6px 0 0; }
+    .chart .read b { color: var(--ink); }
+
+    /* 7 — hardware and value */
+    .value { position: absolute; inset: 0; display: grid; align-items: start;
+             grid-template-columns: 1.06fr 0.94fr 0.94fr; gap: 14px; }
+    .value img { width: 100%; display: block; margin: 2px 0 6px; }
+    .value p { font-size: 0.79rem; color: var(--muted); margin: 0 0 8px; }
+    .value p b { color: var(--ink); }
+    .value ul { margin: 0 0 8px; padding-left: 16px; }
+    .value li { font-size: 0.79rem; color: var(--muted); margin-bottom: 6px; }
+    .value li b { color: var(--ink); font-weight: 600; }
+    .src { font-size: 0.72rem; color: var(--faint); }
   </style>
 </head>
 <body>
@@ -227,8 +200,8 @@
   <p class="eyebrow">统一算法框架</p>
   <h1>一个 0/1 二次模型，覆盖<em>三类筛选任务</em></h1>
   <p class="sub">
-    选基因面板 · 选候选多肽 · 选多基因组合 ｜
-    目标显式写成 <b>价值 − 冗余</b>，规模与载体容量写进目标，<b>每个入选项可追溯</b>
+    选基因面板 · 选候选多肽 · 选多基因组合 ｜ 目标写成
+    <b>价值 − 冗余 − 越界惩罚</b>，实验能做的规模与载体容量是硬约束，<b>每个入选项可追溯</b>
   </p>
 
   <div class="stage">
@@ -237,42 +210,47 @@
     <div class="claim">
       <p class="big">同构<span>。</span></p>
       <p class="line">三类任务，同一个表达式</p>
-      <span class="formula">min xᵀQx &nbsp;&nbsp; x ∈ {0,1}ⁿ</span>
-      <p style="margin-top:10px">
-        从有限的已有证据出发，在硬约束内挑出一个小而互补的子集。
-        换任务只换 Q 的两项含义，不换求解方式。
+      <span class="formula">min xᵀQx &nbsp; x ∈ {0,1}ⁿ</span>
+      <p style="margin-top:6px;font-size:0.8rem">约束：面板规模 · 载体容量 · 锚点 · 互斥</p>
+      <p>
+        生物学上是同一句话：<b style="color:var(--ink)">实验预算只够验证几十个对象，候选却有上万个</b>；
+        要挑出一组彼此不重复、又各自有证据支持的少数。
+      </p>
+      <p>
+        15,156 个基因挑 50 个做面板；69,415 条实测肽挑 25 条去合成；
+        数百条功能证据挑 3–4 个基因装进一个病毒。
       </p>
     </div>
 
     <div class="step s01">
       <div class="no">01</div>
-      <h3>定义价值</h3>
-      <p>每个候选对任务目标的贡献：与表型的互信息、功能实验证据、模型给出的概率。</p>
+      <h3>定义价值 I</h3>
+      <p>候选对目标的贡献：与发育时序的互信息、功能实验证据等级、分类模型给出的抑制概率。</p>
     </div>
     <div class="step s02">
       <div class="no">02</div>
-      <h3>定义冗余</h3>
-      <p>候选之间的重复：基因间相关性、肽的序列家族、作用机制重叠。</p>
+      <h3>定义冗余 R</h3>
+      <p>候选之间的重复：基因共表达、肽的同一序列家族、基因的治疗维度重叠。</p>
     </div>
     <div class="step s03">
       <div class="no">03</div>
-      <h3>组装 Q</h3>
-      <p>Q = (1−α)R − α·diag(I)。规模 k、AAV 容量、表达方式作为约束一并进入。</p>
+      <h3>组装 Q 与惩罚项</h3>
+      <p>规模 k、AAV 容量 bp、锚点必选、过表达与敲除互斥，全部写成二次惩罚并入 Q。</p>
     </div>
     <div class="step s04">
       <div class="no">04</div>
       <h3>经典锁定参数</h3>
-      <p>α 用二分搜索定到目标规模（胎肝 0.3203、小胶质 0.3662）；阈值与权重在训练集上定死。</p>
+      <p>α 用二分搜索定到目标规模（胎肝 0.3203、小胶质 0.3662），阈值与权重在训练集上定死。</p>
     </div>
     <div class="step s05">
       <div class="no">05</div>
-      <h3>求解与采样</h3>
-      <p>禁忌搜索 / 遗传算法 / MQLib / Ocean，以及玻色量子 CIM 真机采样。</p>
+      <h3>多求解器采样</h3>
+      <p>禁忌搜索、模拟退火、记忆遗传算法、MQLib、Ocean，以及玻色量子 CIM 真机，六条路同一个 Q。</p>
     </div>
     <div class="step s06">
       <div class="no">06</div>
-      <h3>独立验证并回流</h3>
-      <p>LASSO 与随机森林对照、论文独立测试集只评一次、湿实验结果写回证据表。</p>
+      <h3>独立对照与回流</h3>
+      <p>求解器之间互为对照，再对 LASSO、随机森林、全基因；独立测试集只评一次，湿实验写回证据。</p>
     </div>
   </div>
 
@@ -283,74 +261,205 @@
 
 <!-- ================= 2 ================= -->
 <section class="slide" id="s2">
-  <div class="wm">核心机制</div>
-  <p class="eyebrow">核心机制</p>
-  <h1>价值与冗余，如何变成<em>一张能量景观</em></h1>
+  <div class="wm">生物学含义</div>
+  <p class="eyebrow">三类任务，同一套编码</p>
+  <h1>同一个 Q，三种<em>生物学含义</em></h1>
   <p class="sub">
-    三类输入 → 统一编码 → <b>min xᵀQx</b> → 多组近优解 → 一份可以交给实验室的候选名单
+    换任务时改的是 <b>I 是什么、R 是什么、硬约束是什么</b>；求解方式、验证规程和硬件通路不变
   </p>
 
   <div class="stage">
-    <img class="hero-art" src="assets/energy-landscape.png" alt="多个谷底的目标函数景观" />
+    <img class="lattice-art" src="assets/selection-lattice.png" alt="候选池中被选中的少数" />
+    <div class="tasks">
+      <div></div>
+      <div class="cell head">
+        <div class="tag">场景一</div>
+        <h3>单细胞基因面板</h3>
+      </div>
+      <div class="cell head">
+        <div class="tag">场景二</div>
+        <h3>DPP-IV 抑制肽</h3>
+      </div>
+      <div class="cell head">
+        <div class="tag">场景三</div>
+        <h3>视神经节细胞修复组合</h3>
+      </div>
 
+      <div class="rh">生物学问题</div>
+      <div class="cell">哪几十个基因能代表造血与小胶质的发育时序，用于后续检测</div>
+      <div class="cell">哪些肽能抑制 DPP-IV —— 已上市 2 型糖尿病药物（列汀类）的同一靶点</div>
+      <div class="cell">哪几个基因一起过表达，能同时保住细胞存活与轴突再生</div>
+
+      <div class="rh">候选规模 n</div>
+      <div class="cell num">2,500 / 15,156 个基因</div>
+      <div class="cell num">69,415 条实测肽</div>
+      <div class="cell num">456 个已核验基因</div>
+
+      <div class="rh">要挑出 k</div>
+      <div class="cell num">50 个基因</div>
+      <div class="cell num">25 条去合成</div>
+      <div class="cell num">3–4 个基因</div>
+
+      <div class="rh">价值 I<sub>i</sub></div>
+      <div class="cell">与发育时间的互信息</div>
+      <div class="cell">模型给出的抑制概率</div>
+      <div class="cell">功能实验证据等级（物种、模型、终点）</div>
+
+      <div class="rh">冗余 R<sub>ij</sub></div>
+      <div class="cell">基因间表达相关性</div>
+      <div class="cell">同一序列家族：25 条里 5 条同属 FLPQPPQ</div>
+      <div class="cell">治疗维度重叠：都只管存活不算互补</div>
+
+      <div class="rh">硬约束</div>
+      <div class="cell">面板规模 = 检测成本</div>
+      <div class="cell">长度与合成成本</div>
+      <div class="cell"><b>单个 AAV 容量</b>：扣除 ITR、启动子、WPRE、polyA、连接肽后的 bp 余量</div>
+
+      <div class="rh">现在到哪一步</div>
+      <div class="cell">下游回归 MSE 0.0210，优于全基因 0.0253 &nbsp;<span class="flag ok">已验证</span></div>
+      <div class="cell">公开划分独立测试 ACC 0.891 &nbsp;<span class="flag ok">已验证</span></div>
+      <div class="cell">证据表与约束已定义 &nbsp;<span class="flag warn">待求解</span></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    价值与冗余都来自可核对的来源：<b>互信息来自表达矩阵，概率来自固定阈值的模型，证据等级来自带 PMID 的实验记录</b>。
+  </div>
+</section>
+
+<!-- ================= 3 ================= -->
+<section class="slide" id="s3">
+  <div class="wm">目标函数</div>
+  <p class="eyebrow">目标函数与约束</p>
+  <h1>完整形式：价值、冗余，<em>再加四类硬约束</em></h1>
+  <p class="sub">
+    所有约束都写成 x 的一次或二次式，展开后并入同一个 Q，问题仍是 QUBO ——
+    <b>约束不是事后过滤，而是目标的一部分</b>
+  </p>
+
+  <div class="stage">
+    <img class="graph-art" src="assets/coupling-graph.png" alt="候选之间的冗余耦合" />
+    <div class="mathwrap">
+      <div>
+        <div class="eq">
+          min<sub>x∈{0,1}ⁿ</sub> &nbsp; E(x) =<br />
+          &nbsp;&nbsp;<span class="op">(1−α)</span> Σ<sub>i&lt;j</sub> R<sub>ij</sub> x<sub>i</sub> x<sub>j</sub>
+          &nbsp; <span class="op">−</span> &nbsp; <span class="op">α</span> Σ<sub>i</sub> I<sub>i</sub> x<sub>i</sub><br />
+          &nbsp;&nbsp;<span class="op">+</span> λ<sub>k</sub> ( Σ<sub>i</sub> x<sub>i</sub> − k )²
+          &nbsp; <span class="op">+</span> λ<sub>c</sub> ( Σ<sub>i</sub> c<sub>i</sub> x<sub>i</sub> − C )²<sub>+</sub><br />
+          &nbsp;&nbsp;<span class="op">+</span> λ<sub>a</sub> Σ<sub>i∈A</sub> (1 − x<sub>i</sub>)
+          &nbsp; <span class="op">+</span> λ<sub>m</sub> Σ<sub>(i,j)∈M</sub> x<sub>i</sub> x<sub>j</sub><br />
+          <span class="note">展开并归并常数项后 ⇒ E(x) = xᵀQx，Q 为对称实矩阵</span>
+        </div>
+        <ul class="terms">
+          <li><code>R<sub>ij</sub></code>候选 i 与 j 的重复程度，按 1/(k−1) 归一，使冗余与价值同量纲</li>
+          <li><code>I<sub>i</sub></code>候选 i 的价值，写在对角线上：<span>Q = (1−α)R − α·diag(I)</span></li>
+          <li><code>λ<sub>k</sub>, k</code>面板规模。实现上用 <b>α 二分搜索</b>把无约束最优解的 |F*| 调到 k ± tol（k=50，tol=5），等价于隐式满足该约束</li>
+          <li><code>λ<sub>c</sub>, c<sub>i</sub>, C</code>载体容量：c<sub>i</sub> 是编码序列 bp，C 是扣除固定元件后的余量，越界才罚</li>
+          <li><code>A</code>锚点必选：已有转化基础的基因固定为 1</li>
+          <li><code>M</code>互斥对：同一基因的过表达与敲除、同一家族的嵌套肽，只许留一条</li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="card" style="margin-bottom:12px">
+          <div class="tag">参数怎么定（不是手调）</div>
+          <ul style="margin:0;padding-left:16px">
+            <li style="font-size:0.81rem;color:var(--muted);margin-bottom:6px">
+              <b style="color:var(--ink)">α*</b>：经典二分搜索到目标规模。胎肝 0.3203，小胶质 0.3662。
+              α 变小面板变小：0.25 → 33 个基因，0.3662 → 50 个，0.5 → 87 个。
+            </li>
+            <li style="font-size:0.81rem;color:var(--muted);margin-bottom:6px">
+              <b style="color:var(--ink)">λ</b>：按量纲取值，使越界时的惩罚超过任何可能的收益，于是最优解必然落在可行域内。
+            </li>
+            <li style="font-size:0.81rem;color:var(--muted)">
+              <b style="color:var(--ink)">分类阈值</b>：固定 0.50，不在测试集上搜索。曾按训练集最优把阈值挪到 0.36，测试 MCC 反而从 0.759 掉到 0.709。
+            </li>
+          </ul>
+        </div>
+
+        <div class="card gold">
+          <div class="tag">实现状态，分开标注</div>
+          <p style="font-size:0.81rem;color:var(--muted);margin:0 0 8px">
+            <span class="flag ok">已跑出结果</span>&nbsp;
+            冗余项、价值项与 α 二分搜索：两套单细胞数据、六个求解器、真机一次。
+          </p>
+          <p style="font-size:0.81rem;color:var(--muted);margin:0 0 8px">
+            <span class="flag warn">已定义，待求解</span>&nbsp;
+            容量项、锚点项、互斥项：RGC 多基因组合场景，证据表与 bp 预算已经就位。
+          </p>
+          <p style="font-size:0.78rem;color:var(--faint);margin:0">
+            这一栏按实现状态分列，不把设计中的部分算作已验证能力。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    同一个表达式既能表达「少选几个」，也能表达「装得进一个病毒」——
+    <b>生物学和工程上的限制，都变成矩阵里的一项</b>。
+  </div>
+</section>
+
+<!-- ================= 4 ================= -->
+<section class="slide" id="s4">
+  <div class="wm">核心机制</div>
+  <p class="eyebrow">核心机制</p>
+  <h1>为什么要采样，而不是<em>排序取前 k</em></h1>
+  <p class="sub">
+    组合数在 10<sup>100</sup> 量级，目标非凸；<b>多个谷底给出同样合格的子集</b>，要的是一批候选而不是唯一解
+  </p>
+
+  <div class="stage">
+    <img class="hero-art" src="assets/landscape-sampled.png" alt="多个谷底与被采样到的解" />
     <div class="flow">
       <div class="col">
-        <h3>多场景输入</h3>
+        <h3>搜索空间</h3>
         <ul>
-          <li><b>单细胞表达矩阵</b><br />胎肝造血 4,463 细胞 / 2,500 基因；小胶质 GSE198531 / 15,156 基因</li>
-          <li><b>多肽序列</b><br />公开划分 532+532 训练、133+133 测试；自测文库 69,415 条</li>
-          <li><b>基因证据表</b><br />Gene × Action × Context，每条带文献编号</li>
+          <li>15,156 选 50：约 <b>10<sup>144</sup></b> 种组合</li>
+          <li>2,500 选 50：约 10<sup>105</sup>；69,415 选 25：约 10<sup>96</sup></li>
+          <li>穷举不可行；0/1 二次优化（Ising 基态）属 NP 难</li>
+          <li>按单项价值排序取前 k，会选到一堆彼此高度相关的基因</li>
         </ul>
       </div>
-
       <div class="col">
-        <h3>统一编码</h3>
+        <h3>解的简并</h3>
         <ul>
-          <li><b>价值项 diag(I)</b>：互信息、功能实验等级、分类概率</li>
-          <li><b>冗余项 R</b>：表达相关性、序列家族、机制重叠</li>
-          <li><b>约束项</b>：面板规模 k、AAV 容量 bp、过表达可行性</li>
-          <li>三者在同一个矩阵里，不做事后过滤</li>
+          <li>不同谷底的能量几乎相同，<b>生物学含义却不同</b></li>
+          <li>实测：禁忌搜索 50 个基因与遗传算法 51 个基因，<b>重叠 41/50</b></li>
+          <li>真机精修解与 Ocean 解重叠 <b>45/50</b></li>
+          <li>重叠度本身就是稳定性指标：共同入选的基因优先送实验</li>
         </ul>
       </div>
-
-      <div class="col mid">
-        <h3>能量景观</h3>
-        <span class="formula">min xᵀQx</span>
-        <p class="note" style="margin-top:8px">
-          x ∈ {0,1}ⁿ，选或不选。<br />
-          多个谷底 = 多组同样合格的子集；<br />
-          要的是一批候选，不是唯一解。
-        </p>
-      </div>
-
       <div class="col">
-        <h3>求解与采样</h3>
+        <h3>映射到硬件</h3>
         <ul>
-          <li><b>经典</b>：禁忌搜索、遗传算法、MQLib、Ocean，用来锁定基线</li>
-          <li><b>玻色量子 CIM</b>：物理机器直接对应 Ising/QUBO，一次运行返回多组近优解</li>
-          <li>两边都在原始浮点 Q 上评分，同一把尺</li>
+          <li>x<sub>i</sub> = (1+s<sub>i</sub>)/2 ⇒ E(s) = Σ J<sub>ij</sub>s<sub>i</sub>s<sub>j</sub> + Σ h<sub>i</sub>s<sub>i</sub> + 常数</li>
+          <li>CIM 真机接收的就是 J 与 h，而且是<b>定点数</b>（8 位或 14 位）</li>
+          <li>|h|/|J| 的动态范围超出位宽，解会退化成全零或正能量</li>
+          <li>我们的做法：范围适配（保留最多耦合）+ 1 位精修</li>
         </ul>
       </div>
-
       <div class="col">
-        <h3>输出</h3>
+        <h3>交付什么</h3>
         <ul>
-          <li><b>50 基因面板</b>：下游回归与通路分析</li>
-          <li><b>25 条待测肽</b>：合成并测 IC50</li>
-          <li><b>多基因组合</b>：装进单个 AAV 的候选构型（设计中）</li>
-          <li>每一项都能回到它的价值来源与冗余对象</li>
+          <li>一份<b>候选集合</b>，附每项的价值来源与冗余对象</li>
+          <li>50 个基因的面板 ｜ 25 条待合成的肽 ｜ 可装载的基因组合</li>
+          <li>同一把尺：所有解都回到原始浮点 Q 上评能量</li>
+          <li>实验结果回流，更新 I 与 R，再解一次</li>
         </ul>
       </div>
     </div>
   </div>
 
   <div class="foot">
-    显式的「价值 − 冗余」让每个入选项都能被追问：<b>它贡献了什么，又和谁重复</b>；黑箱打分回答不了这两个问题。
+    采样器天然输出<b>一批近优解</b>，这正是实验需要的形式：给实验室一张可以排期的名单，而不是一个无法复核的最优值。
   </div>
 </section>
 
-<!-- ================= 3 ================= -->
-<section class="slide" id="s3">
+<!-- ================= 5 ================= -->
+<section class="slide" id="s5">
   <div class="wm">创新性与独一性</div>
   <p class="eyebrow">创新性 · 独一性 · 特点</p>
   <h1>与常规做法相比，<em>差别在五处</em></h1>
@@ -359,12 +468,13 @@
   </p>
 
   <div class="stage">
+    <img class="wide-art" src="assets/landscape-wide.png" alt="目标函数景观" />
     <div class="five">
       <div class="card">
         <div class="tag">01 · 同构</div>
         <h3>一个模型，三类任务</h3>
         <p class="was">常规：每类任务各写一套评分与流程。</p>
-        <p class="is">我们：都写成 min xᵀQx，换任务只换 I 与 R 的含义。</p>
+        <p class="is">我们：都写成 min xᵀQx，换任务只换 I、R 与约束的含义。</p>
         <p class="why">求解器、精度分析与硬件通路建一次，三处复用。</p>
       </div>
       <div class="card">
@@ -378,7 +488,7 @@
         <div class="tag">03 · 约束前置</div>
         <h3>先问做不做得出来</h3>
         <p class="was">常规：先挑最优，再看容量、递送、合成能不能实现。</p>
-        <p class="is">我们：规模 k、AAV 容量 bp、过表达可行性是约束。</p>
+        <p class="is">我们：规模 k、AAV 容量 bp、锚点与互斥都是惩罚项。</p>
         <p class="why">输出直接是可执行构型，不靠事后淘汰。</p>
       </div>
       <div class="card">
@@ -403,85 +513,112 @@
   </div>
 </section>
 
-<!-- ================= 4 ================= -->
-<section class="slide" id="s4">
-  <div class="wm">验证与硬件</div>
-  <p class="eyebrow">已验证的结果 · 玻色量子的位置</p>
-  <h1>同一框架下的三组结果，与 <em>CIM 的意义</em></h1>
+<!-- ================= 6 ================= -->
+<section class="slide" id="s6">
+  <div class="wm">对照与结果</div>
+  <p class="eyebrow">对照与结果</p>
+  <h1>六个求解器、三类统计基线，<em>同一个 Q 与同一套划分</em></h1>
   <p class="sub">
-    公开数据、公开划分、独立对照；硬件结果与经典结果<b>分开列出</b>，不混为一次运行
+    QUBO 侧：禁忌搜索 · 模拟退火 · 记忆遗传算法 · MQLib(MERZ2004) · D-Wave Ocean · 玻色 CIM 真机 ｜
+    统计侧：LASSO · 随机森林 · 全基因 ｜ 多肽侧：逻辑回归 · RBF SVM · 提升树 · 4 模型与 50 模型堆叠
   </p>
 
   <div class="stage">
-    <div class="grid3">
-      <div class="card">
-        <div class="tag">场景一 · 单细胞基因面板</div>
-        <h3>50 个基因替代全转录组</h3>
-        <div class="kv">
-          <div><span>胎肝造血 · Ocean 禁忌</span><em>50 基因，E = −1.5888</em></div>
-          <div><span>小胶质 · 禁忌</span><em>50 基因，E = −1.2534</em></div>
-          <div><span>小胶质 · 遗传算法</span><em>51 基因，重叠 41/50</em></div>
-        </div>
-        <p>
-          小胶质面板回归 MSE 0.0210，LASSO 0.0177，随机森林 0.0220，全基因 0.0253。
-          面板比全基因好，仍不及 LASSO。
+    <div class="charts">
+      <div class="chart">
+        <h3>求解器对照（小胶质，15,156 基因）</h3>
+        <p class="cap">同一个 α* = 0.3662 的 Q，|E| 越大越好</p>
+        <img src="assets/chart-solvers.png" alt="求解器能量对照" />
+        <p class="read">
+          禁忌搜索与遗传算法几乎并列、重叠 41/50；<b>MQLib 在 120 秒预算内没跑完</b>，
+          只收到 27 个基因、仍有 1,209 个可改进方向。采用禁忌搜索的面板。
         </p>
-        <span class="flag ok">已验证</span>
       </div>
 
-      <div class="card">
-        <div class="tag">场景二 · 候选多肽</div>
-        <h3>单模型追平 50 模型堆叠</h3>
-        <div class="kv">
-          <div><span>本方法 ACC / MCC</span><em>0.891 / 0.783</em></div>
-          <div><span>StackDPPIV ACC / MCC</span><em>0.891 / 0.784</em></div>
-          <div><span>灵敏度 Sn</span><em>0.872 · 论文 0.857</em></div>
-        </div>
-        <p>
-          同一公开划分，独立测试集只评一次。论文是 10 编码 × 5 算法共 50 个概率特征再堆叠，
-          本方法是<b>单个提升树</b>，输入含 N 端第一个二肽。
+      <div class="chart">
+        <h3>下游回归对照（留出集 MSE）</h3>
+        <p class="cap">用选出的基因预测发育时序，越低越好</p>
+        <img src="assets/chart-mse.png" alt="下游回归 MSE 对照" />
+        <p class="read">
+          50 个基因优于全部 15,156 个（0.0210 对 0.0253），也优于随机森林。
+          <b>LASSO 仍然最低（0.0177）</b>——它的 48 个非零系数本身也是面板，
+          差别在于我们的目标里能直接加入容量、互斥、锚点这类硬约束，LASSO 没有这个接口。
         </p>
-        <span class="flag ok">已验证</span>
       </div>
 
-      <div class="card">
-        <div class="tag">场景三 · 多基因组合</div>
-        <h3>装得进一个载体的组合</h3>
-        <div class="kv">
-          <div><span>价值</span><em>功能实验证据等级</em></div>
-          <div><span>冗余</span><em>治疗维度重叠</em></div>
-          <div><span>约束</span><em>AAV 容量 bp</em></div>
-        </div>
-        <p>
-          证据表按 Gene × Action × Context 组织，过表达与敲除分开记。
-          容量与表达方式在求解时就是约束，不是事后筛。
+      <div class="chart">
+        <h3>多肽分类对照（公开划分）</h3>
+        <p class="cap">独立测试 133 + 133，阈值固定 0.50，只评一次</p>
+        <img src="assets/chart-dppiv.png" alt="DPP-IV 指标对照" />
+        <p class="read">
+          <b>单个提升树追平了论文 50 模型堆叠的 ACC（0.891），灵敏度更高（0.872 对 0.857）</b>；
+          MCC 低 0.001，特异度与 AUC 仍略低。领先之处在同等精度下的模型复杂度，而不是指标全面超越。
         </p>
-        <span class="flag warn">设计中，未求解</span>
       </div>
+    </div>
+  </div>
 
+  <div class="foot">
+    对照不是只和统计方法比：<b>六个求解器互为对照</b>，重叠度用来判断解是否稳定；统计基线用来判断面板是否真的有用。
+  </div>
+</section>
+
+<!-- ================= 7 ================= -->
+<section class="slide" id="s7">
+  <div class="wm">真机与价值</div>
+  <p class="eyebrow">玻色量子 CIM 的位置 · 价值与边界</p>
+  <h1>硬件已经跑通的部分，<em>和还没跑通的部分</em></h1>
+  <p class="sub">
+    把真机原始解、精修解与经典解分开列；<b>现在是同一水平，价值在规模</b>
+  </p>
+
+  <div class="stage">
+    <div class="value">
       <div class="card gold">
-        <div class="tag">玻色量子 CIM 的意义</div>
-        <h3>一次采样，给出一批候选</h3>
+        <div class="tag">真机结果（胎肝造血，2,500 基因）</div>
+        <img src="assets/chart-cim.png" alt="CIM 与 Ocean 能量对照" />
         <p>
-          <b>已验证：</b>14-bit 真机、2,500 基因的锁定 Q。原始解 315 个基因、E = +9.8033；
-          经 1-bit 精修后 48 个基因、E = −1.5862，与 Ocean 的 −1.5888 相差 0.16%，重叠 45/50。
+          14 位真机的原始解 315 个基因、能量 <b>+9.8033</b>（正能量＝不可用）；
+          经 1 位精修后 48 个基因、<b>−1.5862</b>，与 Ocean 的 −1.5888 相差 <b>0.16%</b>，重叠 45/50。
         </p>
         <p>
-          <b>现实限制：</b>8-bit 直接提交出现全零解与正能量解，原因是<b>动态范围</b>，不是问题规模；
-          需要范围适配与精修。
+          8 位直接提交会出现全零解与正能量解，原因是 <b>|h|/|J| 的动态范围</b>，不是问题规模。
+          我们的处理是范围适配加 1 位精修，并把两步分开报告。
         </p>
-        <p>
-          <b>价值在规模：</b>MQLib 在 120 秒预算内只收到 27 个基因、仍有 1,209 个可改进方向。
-          基因池扩到上万、组合项增多时，经典预算跑不完；CIM 的路径是把求解从「跑不完」变成「一次采样」。
+      </div>
+
+      <div class="card">
+        <div class="tag">为什么要绑定光量子硬件</div>
+        <ul>
+          <li><b>问题形式天然匹配</b>：基因面板、肽筛选、多基因组合写出来都是 Ising/QUBO，不需要为了上硬件改写科学问题</li>
+          <li><b>一次运行给一批解</b>：实验需要的是候选名单，采样器的输出形式正好对口</li>
+          <li><b>瓶颈已定位在精度</b>：位宽与动态范围，而不是比特数量；范围适配与评分口径我们已经跑通</li>
+          <li><b>经典侧已经到边界</b>：MQLib 在 120 秒内跑不完 15,156 个基因的 Q</li>
+        </ul>
+        <p class="src">以上四条分别对应仓库中的 qubo_model.py、benchmark_cim14 日志与 microglia2 日志。</p>
+      </div>
+
+      <div class="card">
+        <div class="tag">价值、边界与下一步</div>
+        <ul>
+          <li><b>可复用资产</b>：一套目标函数、六个求解器、一套验证规程；换任务只换 I、R 与约束</li>
+          <li><b>交付物</b>：可排期的候选名单，不是黑箱分数</li>
+          <li><b>已验证</b>：公开数据、公开划分、独立对照、真机 0.16%</li>
+          <li><b>尚未验证</b>：25 条肽的 IC50、RGC 组合求解与动物实验、万级基因池上的真机采样</li>
+        </ul>
+        <p style="margin-bottom:6px">
+          应用背景：DPP-IV 是已上市 2 型糖尿病药物（列汀类）的靶点；已上市肽类药物超过 80 种。
         </p>
-        <span class="flag warn">硬件：范围适配 + 1-bit 精修</span>
+        <p class="src">
+          来源：Liu, Cheng &amp; Wu, IJMS 2019, 20:463；Muttenthaler 等, Nat Rev Drug Discov 2021, 20:309–325。
+        </p>
       </div>
     </div>
   </div>
 
   <div class="foot">
     <b>经典锁定参数，玻色采样给候选，实验给结论。</b>
-    三件事分开，所以每一个数字都能说清它来自哪一步。
+    三件事分开，所以每一个数字都能说清它来自哪一步，也说得清哪些还没做。
   </div>
 </section>
 
