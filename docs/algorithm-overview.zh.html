@@ -190,12 +190,118 @@
     .value li { font-size: 0.79rem; color: var(--muted); margin-bottom: 6px; }
     .value li b { color: var(--ink); font-weight: 600; }
     .src { font-size: 0.72rem; color: var(--faint); }
+
+    /* 1 — one page */
+    .kpis { position: absolute; left: 0; right: 0; top: 0; display: grid;
+            grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .kpi { border-left: 3px solid var(--gold); padding: 1px 0 1px 12px; }
+    .kpi .n { font-size: 1.42rem; font-weight: 800; line-height: 1.15; letter-spacing: -0.01em; }
+    .kpi .l { font-size: 0.75rem; color: var(--muted); margin-top: 3px; }
+    .sum3 { position: absolute; left: 0; right: 0; top: 108px; bottom: 0; display: grid;
+            grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .sum3 h3 { font-size: 0.98rem; margin: 0 0 8px; color: var(--gold-deep); }
+    .sum3 ul { margin: 0; padding-left: 16px; }
+    .sum3 li { font-size: 0.8rem; color: var(--muted); margin-bottom: 7px; }
+    .sum3 li b { color: var(--ink); font-weight: 600; }
+
+    /* 8 — peers */
+    .cmp { position: absolute; inset: 0; display: grid;
+           grid-template-columns: 1.02fr 0.98fr; gap: 16px; align-items: start; }
+    .cmp img { width: 100%; display: block; margin-top: 4px; }
+    .cmp .cap { font-size: 0.75rem; color: var(--muted); margin: 4px 0 0; }
+    .key { font-size: 0.72rem; color: var(--muted); margin: 6px 0 0; }
+    .key i { display: inline-block; width: 9px; height: 9px; border-radius: 2px;
+             margin: 0 4px 0 10px; vertical-align: -1px; }
+    .key i:first-child { margin-left: 0; }
+    .peer { padding: 9px 0; border-top: 1px solid var(--line); font-size: 0.78rem; color: var(--muted); }
+    .peer:first-child { border-top: 0; padding-top: 0; }
+    .peer h3 { font-size: 0.92rem; margin: 0 0 3px; color: var(--ink); }
+    .peer b { color: var(--ink); font-weight: 600; }
+
+    /* 9 — cost */
+    .cost { position: absolute; inset: 0; display: grid; align-items: start;
+            grid-template-columns: 1.2fr 0.9fr 0.9fr; gap: 14px; }
+    .cost h3 { font-size: 0.96rem; margin: 0 0 4px; }
+    .cost .big2 { font-size: 1.2rem; font-weight: 800; color: var(--gold-deep); margin: 0 0 4px; }
+    .cost img { width: 100%; display: block; margin: 2px 0 4px; }
+    .cost p { font-size: 0.77rem; color: var(--muted); margin: 0 0 6px; }
+    .cost ul { margin: 0; padding-left: 15px; }
+    .cost li { font-size: 0.77rem; color: var(--muted); margin-bottom: 5px; }
+    .cost b { color: var(--ink); font-weight: 600; }
   </style>
 </head>
 <body>
 
 <!-- ================= 1 ================= -->
 <section class="slide" id="s1">
+  <div class="wm">超体智汇 · 一页纸<br />2026-11</div>
+  <p class="eyebrow">一页纸</p>
+  <h1>一套 0/1 二次模型，<em>三类筛选共用</em></h1>
+  <p class="sub">
+    基因面板 · DPP-IV 抑制肽 · 多基因 AAV 组合 ｜
+    目标是 <b>价值 − 冗余 − 越界惩罚</b>，求解器与真机通路建一次、三处复用
+  </p>
+
+  <div class="stage">
+    <div class="kpis">
+      <div class="kpi">
+        <div class="n">0.891</div>
+        <div class="l">多肽独立测试准确率<br />单个模型，与 50 模型堆叠持平</div>
+      </div>
+      <div class="kpi">
+        <div class="n">0.16%</div>
+        <div class="l">14 位真机精修解与 Ocean 的能量差<br />基因重叠 45/50</div>
+      </div>
+      <div class="kpi">
+        <div class="n">50 / 15,156</div>
+        <div class="l">小胶质面板。留出集 MSE 0.0210，全基因 0.0253</div>
+      </div>
+      <div class="kpi">
+        <div class="n">69,415 → 25</div>
+        <div class="l">实测肽收到待合成名单，约 2,800 里留 1 条</div>
+      </div>
+    </div>
+
+    <div class="sum3">
+      <div class="card">
+        <h3>已经核对过的</h3>
+        <ul>
+          <li>两套公开单细胞数据，胎肝 2,500 基因与小胶质 15,156 基因，<b>α 由二分搜索定死</b>（0.3203、0.3662）</li>
+          <li>六个求解器解同一个 Q：禁忌搜索、模拟退火、记忆遗传算法、MQLib、Ocean、玻色 CIM</li>
+          <li>多肽用论文公开划分，<b>阈值固定 0.50，测试集只评一次</b></li>
+          <li>真机原始解与精修解分开列：+9.8033 对精修后 −1.5862</li>
+        </ul>
+      </div>
+      <div class="card gold">
+        <h3>模型在做什么</h3>
+        <ul>
+          <li>每个候选有一个价值 I，候选之间有一个冗余 R，规模、载体容量、锚点、互斥写成惩罚项</li>
+          <li>展开后仍是 <b>min xᵀQx，x 只取 0 或 1</b></li>
+          <li>换任务只换 I、R 和约束的生物学含义，求解方式不变</li>
+          <li>交付的是一份<b>可排期的候选名单</b>，每一项能追溯到证据来源</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>还没做、下一步要做</h3>
+        <ul>
+          <li>25 条肽的 <b>IC50</b>，用来测定这个实测库里的真实活性占比</li>
+          <li>RGC 组合的正式求解：容量、锚点、互斥已写进目标，<b>尚未跑出组合</b></li>
+          <li>万级基因池上的真机采样。目前真机跑的是 2,500 基因</li>
+          <li>动物实验与载体包装，在组合求解之后</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <b>经典锁定参数，玻色采样给候选，实验给结论。</b>
+    三件事分开，所以每个数字都能说清来自哪一步。
+  </div>
+</section>
+
+
+<!-- ================= 2 ================= -->
+<section class="slide" id="s2">
   <div class="wm">超体智汇 · QUBO 筛选框架<br />2026-11</div>
   <p class="eyebrow">统一算法框架</p>
   <h1>一个 0/1 二次模型，覆盖<em>三类筛选任务</em></h1>
@@ -259,8 +365,8 @@
   </div>
 </section>
 
-<!-- ================= 2 ================= -->
-<section class="slide" id="s2">
+<!-- ================= 3 ================= -->
+<section class="slide" id="s3">
   <div class="wm">生物学含义</div>
   <p class="eyebrow">三类任务，同一套编码</p>
   <h1>同一个 Q，三种<em>生物学含义</em></h1>
@@ -327,8 +433,8 @@
   </div>
 </section>
 
-<!-- ================= 3 ================= -->
-<section class="slide" id="s3">
+<!-- ================= 4 ================= -->
+<section class="slide" id="s4">
   <div class="wm">目标函数</div>
   <p class="eyebrow">目标函数与约束</p>
   <h1>完整形式：价值、冗余，<em>再加四类硬约束</em></h1>
@@ -402,8 +508,8 @@
   </div>
 </section>
 
-<!-- ================= 4 ================= -->
-<section class="slide" id="s4">
+<!-- ================= 5 ================= -->
+<section class="slide" id="s5">
   <div class="wm">核心机制</div>
   <p class="eyebrow">核心机制</p>
   <h1>为什么要采样，而不是<em>排序取前 k</em></h1>
@@ -458,8 +564,8 @@
   </div>
 </section>
 
-<!-- ================= 5 ================= -->
-<section class="slide" id="s5">
+<!-- ================= 6 ================= -->
+<section class="slide" id="s6">
   <div class="wm">创新性与独一性</div>
   <p class="eyebrow">创新性 · 独一性 · 特点</p>
   <h1>与常规做法相比，<em>差别在五处</em></h1>
@@ -513,8 +619,8 @@
   </div>
 </section>
 
-<!-- ================= 6 ================= -->
-<section class="slide" id="s6">
+<!-- ================= 7 ================= -->
+<section class="slide" id="s7">
   <div class="wm">对照与结果</div>
   <p class="eyebrow">对照与结果</p>
   <h1>六个求解器、三类统计基线，<em>同一个 Q 与同一套划分</em></h1>
@@ -563,8 +669,120 @@
   </div>
 </section>
 
-<!-- ================= 7 ================= -->
-<section class="slide" id="s7">
+<!-- ================= 8 ================= -->
+<section class="slide" id="s8">
+  <div class="wm">同类工作</div>
+  <p class="eyebrow">同类工作</p>
+  <h1>同任务的模型已经不少，<em>差别在约束和任务范围</em></h1>
+  <p class="sub">
+    多肽分类与公开结果放在同一张独立测试集上比；证据平台和面板方法比的是<b>它们解答的问题</b>，我们没有在它们的基准上重跑
+  </p>
+
+  <div class="stage">
+    <div class="cmp">
+      <div class="card">
+        <div class="tag">DPP-IV 抑制肽 · 同一独立测试集 133 + 133</div>
+        <img src="assets/chart-competitors.png" alt="四个方法的 ACC 与 MCC" />
+        <p class="key">
+          <i style="background:#d7d2c7"></i>iDPPIV-SCM 2020
+          <i style="background:#9a948a"></i>StackDPPIV 2022
+          <i style="background:#5b7fb4"></i>BERT-DPPIV 2023
+          <i style="background:#e8930c"></i>我们，单个模型
+        </p>
+        <p class="cap">
+          BERT-DPPIV 三个模型合起来 0.894 / 0.790，它的单个模型是 0.891 / 0.784。
+          我们的 AUC 0.950，两篇论文是 0.960 与 0.961。
+        </p>
+      </div>
+      <div>
+        <div class="peer">
+          <h3>iDPPIV-SCM · 2020</h3>
+          一张氨基酸与二肽打分卡。独立测试 ACC 0.797、MCC 0.594。后面三个方法都明显高过它。
+        </div>
+        <div class="peer">
+          <h3>Open Targets · 靶点证据平台</h3>
+          把遗传、文献、临床等证据收成 0 到 1 的关联分，用来给疾病排序靶点。
+          <b>它给出排序，不给出固定规模的子集，也不处理载体容量、锚点和互斥。</b>
+          它的分数可以当作我们的 I，我们的输出是满足约束的组合。
+        </div>
+        <div class="peer">
+          <h3>scGeneFit · geneBasis · scGIST</h3>
+          专门从单细胞数据里选 marker 面板，目标是分开细胞类型，面板规模是约束。
+          <b>它们不做肽，也不做多基因载体。</b>
+          我们的 I 是与发育时间的互信息，同一个 Q 还带容量和互斥，并能映射到 CIM。
+        </div>
+        <div class="peer">
+          <h3>所以领先在哪里</h3>
+          多肽精度处在 2022–2023 年最好结果的同一档，模型个数是 1 对 3 或 50。
+          <b>三类任务共用一个带硬约束的 Q，这一项上述工作都没有。</b>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    来源：J Proteome Res 2020, 19:4125；Methods 2022, 204:189；ACS Omega 2023, 10.1021/acsomega.3c05571；
+    Nat Commun 2021, 12:1186；Genome Biol 2021, 22:290 与 2024, 25:57。
+  </div>
+</section>
+
+<!-- ================= 9 ================= -->
+<section class="slide" id="s9">
+  <div class="wm">实验次数</div>
+  <p class="eyebrow">一次筛选省下多少实验</p>
+  <h1>省下的是合成和测序的<em>次数</em></h1>
+  <p class="sub">
+    单价随供应商和规格变化，这里不写死金额。次数由已测到的灵敏度、特异度和候选规模决定，
+    <b>换成金额时把单价代进 docs/cost_model.py</b>
+  </p>
+
+  <div class="stage">
+    <div class="cost">
+      <div class="card gold">
+        <div class="tag">多肽 · 合成加酶活测定</div>
+        <div class="big2">活性占 1% 时，11 条确认 1 条</div>
+        <img src="assets/chart-enrichment.png" alt="每个阳性所需的合成次数" />
+        <p>
+          公开测试集灵敏度 0.872、特异度 0.910。库里真有活性的占 1% 时，模型点名的肽里 8.9% 是真的，
+          确认 1 条平均合成 <b>11.2 条</b>；不做筛选要 100 条，约 <b>9 倍</b>。占 5% 时是 3.0 对 20。
+        </p>
+        <p>
+          实测库 69,415 条收到 25 条待合成，是得分最高的一截。<b>这个库的真实活性占比要等第一轮 IC50</b>，占比一定，节省的倍数就定了。
+        </p>
+      </div>
+      <div class="card">
+        <div class="tag">测序 · 面板替代全转录组</div>
+        <div class="big2">50 个基因，0.33%</div>
+        <ul>
+          <li>小胶质过滤后 15,156 个基因，面板留下 50 个</li>
+          <li>留出集 MSE <b>0.0210</b>，用全部基因是 0.0253，砍掉 99.7% 的基因没有损失预测</li>
+          <li>后续每个样本只测这 50 个</li>
+        </ul>
+        <p>节省的金额 = 样本数 ×（全转录组单价 − 面板单价）。两个单价按你们的测序合同填。</p>
+      </div>
+      <div class="card">
+        <div class="tag">载体 · 组合在包装之前收口</div>
+        <div class="big2">选 3 个：1,570 万种</div>
+        <ul>
+          <li>456 个已核验基因里选 2 个：103,740 种</li>
+          <li>选 3 个：<b>15,699,320</b> 种；选 4 个：17.8 亿种</li>
+          <li>一次动物实验只测一个构建</li>
+          <li>容量项在合成之前去掉装不进单个 AAV 的组合，锚点与互斥去掉不能同时做的</li>
+        </ul>
+        <p>这一项省下的是构建数和动物队列数。组合本身还没求解，次数是搜索空间，是上限。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    节省 = 需要的阳性数 × 单价 ×（1/活性占比 − 1/命中率）。
+    <b>公式里每一项都能替换成你们自己的报价和第一轮实测占比。</b>
+  </div>
+</section>
+
+
+<!-- ================= 10 ================= -->
+<section class="slide" id="s10">
   <div class="wm">真机与价值</div>
   <p class="eyebrow">玻色量子 CIM 的位置 · 价值与边界</p>
   <h1>硬件已经跑通的部分，<em>和还没跑通的部分</em></h1>
