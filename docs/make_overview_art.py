@@ -43,6 +43,13 @@ CHART_SOURCES = {
     "dppiv": "dppiv_narrow.log: ours 0.891/0.872/0.910/0.783/0.950; StackDPPIV Table 3 0.891/0.857/0.925/0.784/0.961",
     # fetal haematopoietic run, 4,463 cells, 2,500 genes, alpha* = 0.3203
     "cim": "benchmark_cim14: raw +9.8033 (315 genes), 1-bit refine -1.5862 (48 genes), Ocean -1.5888 (50 genes)",
+    # same published split for every method below
+    "competitors": (
+        "iDPPIV-SCM 0.797/0.594 (J Proteome Res 2020 19:4125, as restated in ACS Omega 2023); "
+        "StackDPPIV 0.891/0.784 (Methods 2022); "
+        "BERT-DPPIV 0.894/0.790 combined and 0.891/0.784 at k-mer=1 (ACS Omega 2023, 10.1021/acsomega.3c05571); "
+        "ours 0.891/0.783 (dppiv_narrow.log)"
+    ),
 }
 
 PEAKS = (
@@ -290,6 +297,38 @@ def chart_cim(path: pathlib.Path) -> pathlib.Path:
     return _save(fig, path, crop=False)
 
 
+def _cjk() -> None:
+    from matplotlib import font_manager
+    font_manager.fontManager.addfont("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc")
+    plt.rcParams["font.family"] = "WenQuanYi Micro Hei"
+    plt.rcParams["axes.unicode_minus"] = False
+
+
+def chart_competitors(path: pathlib.Path) -> pathlib.Path:
+    _cjk()
+    methods = [
+        ("iDPPIV-SCM\n2020", 0.797, 0.594, GREY_PALE),
+        ("StackDPPIV\n2022", 0.891, 0.784, GREY),
+        ("BERT-DPPIV\n2023", 0.894, 0.790, "#5b7fb4"),
+        ("ours\nsingle model", 0.891, 0.783, GOLD),
+    ]
+    idx = np.arange(2)
+    width = 0.19
+    fig, ax = _bar_axes(5.6, 2.15)
+    for n, (name, acc, mcc, color) in enumerate(methods):
+        pos = idx + (n - 1.5) * width
+        bars = ax.bar(pos, [acc, mcc], width=width * 0.92, color=color)
+        for bar in bars:
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.012,
+                    f"{bar.get_height():.3f}", ha="center", fontsize=7.0, color=INK)
+    ax.set_xticks(idx, ["ACC", "MCC"])
+    ax.set_ylim(0, 1.08)
+    ax.set_ylabel("同一独立测试集，133 + 133", fontsize=8.5, color="#6b6760")
+    ax.grid(axis="y", color=GREY_PALE, lw=0.6, alpha=0.6)
+    ax.set_axisbelow(True)
+    return _save(fig, path, crop=False)
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     made = [
@@ -302,6 +341,7 @@ def main() -> None:
         chart_mse(OUT_DIR / "chart-mse.png"),
         chart_dppiv(OUT_DIR / "chart-dppiv.png"),
         chart_cim(OUT_DIR / "chart-cim.png"),
+        chart_competitors(OUT_DIR / "chart-competitors.png"),
     ]
     for item in made:
         print(item)

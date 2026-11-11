@@ -33,8 +33,9 @@ Local solvers: D-Wave Ocean `TabuSampler` / `SimulatedAnnealingSampler` (**class
 | `docs/compare-romero-2025.zh.html` | Same report in Chinese, including GSE308682 train/test split |
 | `docs/compare-stackdppiv-2022.html` | DPP-IV independent test vs StackDPPIV Table 3 (English) |
 | `docs/compare-stackdppiv-2022.zh.html` | Same DPP-IV report in Chinese: DPC, RBF, boosting, length bins |
-| `docs/algorithm-overview.zh.html` | 七页幻灯：统一的 0/1 二次筛选模型、三类任务的生物学含义、完整目标函数与约束、采样机制、创新点、对照图表、真机与价值 |
-| `docs/make_overview_art.py` | Renders the deck's artwork and its four charts into `docs/assets/` |
+| `docs/algorithm-overview.zh.html` | 十页幻灯：一页纸、统一模型、生物学含义、完整目标函数、采样机制、创新点、对照图表、同类工作、实验次数、真机与价值 |
+| `docs/make_overview_art.py` | Renders the deck's artwork and its charts into `docs/assets/` |
+| `docs/cost_model.py` | Turns the measured sensitivity and specificity into syntheses saved; prices stay as arguments |
 | `docs/briefing-qubo-effort.html` | Bilingual progress report: k=50 at 5,000 genes, charts, optional CIM compare |
 | `docs/cim-quota-request.zh.md` | 光子 CIM 真机算力申请文案（可直接提交） |
 | `docs_v2/` | Fetal Smart-seq2 QUBO vs Ranzoni/Cvejic (English + Chinese; charts + CIM/ARES) |
